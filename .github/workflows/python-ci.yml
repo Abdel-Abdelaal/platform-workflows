@@ -124,5 +124,5 @@ jobs:
           python-version: ${{ inputs.python-version }}
       - run: uv sync --locked
       - run: |
-          uv export --frozen --no-hashes --no-dev --format requirements-txt -o requirements-audit.txt
+          uv export --frozen --no-hashes --no-dev --no-emit-project --format requirements-txt -o requirements-audit.txt
           uvx pip-audit@2.10.1 -r requirements-audit.txt --strict --progress-spinner off
