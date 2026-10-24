@@ -79,3 +79,32 @@ def test_runner_cli_skips_or_writes_validated_json(
         assert json.loads(output.read_text())["summary"] == "valid"
     else:
         assert "skipped" in output.read_text()
+
+
+def test_invalid_tool_text_retries_without_executing_or_echoing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ai_runner.shutil, "which", Mock(return_value="opencode"))
+    invalid = json.dumps(
+        {"type": "text", "part": {"text": "<tool_call>secret</tool_call>"}}
+    )
+    valid = json.dumps({"type": "text", "part": {"text": '{"summary":"valid"}'}})
+    run = Mock(
+        side_effect=[CompletedProcess([], 0, invalid), CompletedProcess([], 0, valid)]
+    )
+    monkeypatch.setattr(ai_runner.subprocess, "run", run)
+    assert ai_runner.analyze("context", "prompt", "key").summary == "valid"
+    assert run.call_count == 2
+    assert "secret" not in run.call_args.args[0][-1]
+
+
+def test_exhausted_analysis_fails_without_provider_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ai_runner.shutil, "which", Mock(return_value="opencode"))
+    run = Mock(return_value=CompletedProcess([], 0, "private invalid output"))
+    monkeypatch.setattr(ai_runner.subprocess, "run", run)
+    with pytest.raises(ai_runner.AnalysisUnavailableError) as error:
+        ai_runner.analyze("context", "prompt", "key")
+    assert run.call_count == 3
+    assert "private" not in str(error.value)
