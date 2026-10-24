@@ -34,3 +34,8 @@ jobs:
 Releases are tagged `vX.Y.Z`. The major tag (`v1`) moves to the latest compatible
 release, so callers get fixes without editing their workflows. Breaking changes get
 a new major tag.
+
+## Standards
+
+See the [engineering handbook](https://github.com/Abdel-Abdelaal/.github/tree/main/standards).
+Community policies and templates are inherited from the shared `.github` repo.
