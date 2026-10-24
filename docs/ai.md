@@ -24,9 +24,8 @@ The model process receives its provider key and necessary OS variables, with no
 GitHub or App credential. Pydantic validates and bounds the returned JSON.
 These boundaries reduce prompt-injection impact; they do not prove AI correctness.
 
-The tooling is implemented and tested first. The reusable workflows and fleet
-activation are delivered in the next PR and must be exercised before being
-described as active controls.
+The tooling and reusable workflows are implemented and tested. Fleet activation
+is tracked by consumer PRs; a configured file is not evidence of a successful run.
 
 ## Workflows
 
