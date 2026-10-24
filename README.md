@@ -27,7 +27,7 @@ permissions: {}
 
 jobs:
   pr-title:
-    uses: Abdel-Abdelaal/platform-workflows/.github/workflows/pr-title.yml@v1
+    uses: Abdel-Abdelaal/platform-workflows/.github/workflows/pr-title.yml@c047928d7555f1f9e6e2ab56e6e9d3bfa79cdc2c # v1.2.0
     permissions:
       pull-requests: read
 ```
@@ -63,4 +63,7 @@ Dependency review starts warn-only until 2026-10-31, then enforces high-severity
 findings and the approved license list automatically. Review the initial findings
 before that date. CodeQL, secret scanning and workflow checks enforce immediately.
 The platform runs the same security workflow against itself through a local call.
-Only the controlled platform release tags are exempt from SHA pinning.
+Every remote action and workflow is SHA-pinned, including our own releases.
+
+Managed callers pin release commit SHAs; Dependabot proposes reviewed updates.
+The `v1` tag remains available for discovery, while fleet execution is reproducible.
