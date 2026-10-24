@@ -43,6 +43,33 @@ a new major tag.
 See the [engineering handbook](https://github.com/Abdel-Abdelaal/.github/tree/main/standards).
 Community policies and templates are inherited from the shared `.github` repo.
 
+## Tested advisory AI
+
+The [AI integration](docs/ai.md) uses locked OpenCode and Xiaomi MiMo 2.6 Flash.
+Review and audit jobs treat source as data in an isolated process without GitHub
+credentials; separate publishers produce neutral notices and idempotent reports.
+Fixes are bounded patches tested without provider/App credentials, then proposed
+as draft PRs. AI never approves, merges or becomes a required check.
+
+Reusable entry points are `ai-review.yml`, `ai-audit.yml`, `ai-fix.yml` and
+`ai-standards-review.yml`. Pin their release commit and pass that same SHA as
+`platform-ref`. Explicitly pass only the named secrets needed by the mode.
+
+## Validate the platform itself
+
+```sh
+uv sync --locked
+uv run ruff format --check .
+uv run ruff check .
+uv run pyright
+uv run pytest --cov --cov-branch --cov-report=xml --cov-report=term-missing
+```
+
+The platform runs its own reusable Python and security workflows. Tests exercise
+prompt-injection boundaries, output contracts, credential isolation, source/path
+filters, idempotent publishing and actual Git patch application. npm's lockfile
+pins the coding CLI and native packages; Dependabot monitors npm, uv and Actions.
+
 ## Python quality gates
 
 Call `python-ci.yml@v1` as job `ci` with `contents: read`, then require its real

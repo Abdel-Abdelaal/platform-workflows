@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.env
+*.pem
+analysis.json
+requirements-audit.txt
+node_modules/

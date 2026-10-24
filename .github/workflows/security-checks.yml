@@ -15,7 +15,7 @@ jobs:
       pull-requests: write
       security-events: write
     with:
-      languages: '["actions"]'
+      languages: '["python","actions"]'
   report:
     needs: security
     if: failure() && github.event_name == 'schedule'

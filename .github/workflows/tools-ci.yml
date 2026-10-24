@@ -1,0 +1,22 @@
+name: Platform tools CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '29 2 * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ci:
+    uses: ./.github/workflows/python-ci.yml
+    permissions:
+      contents: read
+  report:
+    needs: ci
+    if: failure() && github.event_name == 'schedule'
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Nightly platform tooling CI failed
