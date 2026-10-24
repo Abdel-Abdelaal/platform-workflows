@@ -1,0 +1,14 @@
+# This repo runs its own reusable workflows on its own PRs.
+name: PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  pr-title:
+    uses: ./.github/workflows/pr-title.yml
+    permissions:
+      pull-requests: read
