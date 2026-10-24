@@ -25,6 +25,7 @@ def test_environment_excludes_privileged_tokens(
     assert config["model"] == "mimo/mimo-v2.6-flash"
     assert config["small_model"] == config["model"]
     assert config["share"] == "disabled"
+    assert config["agent"]["review"]["steps"] == 3
     assert "ai-secret" not in environment["OPENCODE_CONFIG_CONTENT"]
 
 

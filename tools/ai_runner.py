@@ -84,7 +84,7 @@ def runner_config() -> dict[str, object]:
             "review": {
                 "description": "Tool-denied coding analysis",
                 "mode": "primary",
-                "steps": 1,
+                "steps": 3,
                 "prompt": SYSTEM_PROMPT,
                 "permission": {"*": "deny"},
             }
