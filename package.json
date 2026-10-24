@@ -1,0 +1,9 @@
+{
+  "name": "showcase-platform-tools",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Locked coding-agent CLI for isolated advisory analysis",
+  "devDependencies": {
+    "opencode-ai": "1.18.35"
+  }
+}
