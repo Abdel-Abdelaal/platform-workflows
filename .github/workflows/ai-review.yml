@@ -1,0 +1,25 @@
+name: ai-review
+on:
+  workflow_call:
+    secrets:
+      AI_API_KEY:
+        required: false
+      BOT_APP_ID:
+        required: false
+      BOT_APP_KEY:
+        required: false
+permissions: {}
+jobs:
+  ai:
+    uses: ./.github/workflows/ai.yml
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: write
+    with:
+      mode: review
+    secrets:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      BOT_APP_ID: ${{ secrets.BOT_APP_ID }}
+      BOT_APP_KEY: ${{ secrets.BOT_APP_KEY }}

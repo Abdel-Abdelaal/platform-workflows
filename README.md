@@ -52,8 +52,8 @@ Fixes are bounded patches tested without provider/App credentials, then proposed
 as draft PRs. AI never approves, merges or becomes a required check.
 
 Reusable entry points are `ai-review.yml`, `ai-audit.yml`, `ai-fix.yml` and
-`ai-standards-review.yml`. Pin their release commit and pass that same SHA as
-`platform-ref`. Explicitly pass only the named secrets needed by the mode.
+`ai-standards-review.yml`. Pin their release commit; executable tooling is fixed to a separately reviewed
+commit inside the workflow. Explicitly pass only the named secrets needed by the mode.
 
 ## Validate the platform itself
 
