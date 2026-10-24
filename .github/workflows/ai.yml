@@ -5,10 +5,6 @@ on:
       mode:
         type: string
         required: true
-      platform-ref:
-        description: The same full release commit SHA used by the caller
-        type: string
-        required: true
     secrets:
       AI_API_KEY:
         required: false
@@ -39,12 +35,10 @@ jobs:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
-      - name: Validate source ref and mode
+      - name: Validate analysis mode
         env:
-          PLATFORM_REF: ${{ inputs.platform-ref }}
           MODE: ${{ inputs.mode }}
         run: |
-          [[ "$PLATFORM_REF" =~ ^[a-f0-9]{40}$ ]]
           case "$MODE" in review|audit|fix|standards) ;; *) exit 1 ;; esac
       - name: Check credential availability
         id: available
@@ -81,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ${{ inputs.platform-ref }}
+          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -163,7 +157,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ${{ inputs.platform-ref }}
+          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -200,7 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ${{ inputs.platform-ref }}
+          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -241,7 +235,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ${{ inputs.platform-ref }}
+          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -304,7 +298,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ${{ inputs.platform-ref }}
+          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0

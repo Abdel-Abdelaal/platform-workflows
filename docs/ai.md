@@ -36,9 +36,10 @@ is tracked by consumer PRs; a configured file is not evidence of a successful ru
 | `ai-fix.yml` | one focused proposal from the health report | tested patch, then one draft App-authored PR |
 | `ai-standards-review.yml` | monthly handbook/current-doc comparison | standards-only draft PR |
 
-Every caller pins the workflow release commit and passes that **same SHA** as
-`platform-ref`, so prompts and tools match the reviewed workflow version. Internal
-relative reusable calls are tied to that commit. Do not use `secrets: inherit`.
+Every caller pins the workflow release commit. The workflow itself pins a separate,
+reviewed tooling commit containing its scripts, prompts and lockfiles; callers cannot
+choose executable tooling through an input. Internal relative workflow calls are
+tied to the release commit. Do not use `secrets: inherit`.
 The complete permission set required by the wrapper is contents read, issues write,
 pull-requests write and checks write; individual jobs narrow it to their purpose.
 Review and audit only need the API key. Fix/standards jobs additionally need the
