@@ -1,0 +1,32 @@
+name: Report scheduled failure
+on:
+  workflow_call:
+    inputs:
+      title:
+        type: string
+        required: true
+permissions: {}
+jobs:
+  report:
+    name: Report failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - name: Open or update failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: ${{ inputs.title }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          issue=$(gh issue list --state open --label governance --json number,title | jq -r --arg title "$TITLE" '.[] | select(.title == $title) | .number' | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --body "Scheduled run failed: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --label governance --body "Scheduled run failed: $RUN_URL"
+          fi
