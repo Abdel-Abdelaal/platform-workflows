@@ -26,7 +26,7 @@ code) and the tracked file list. It never runs repository code. It outputs:
 
 | Workflow | Languages | Blocks merges on |
 |---|---|---|
-| [`lint.yml`](../.github/workflows/lint.yml) | all (super-linter slim: ktlint, ESLint, Prettier, ShellCheck, shfmt, hadolint, tflint, yamllint, markdownlint, ruff and more) | lint errors in files the PR changes. A scheduled `full-scan: true` run reports the whole-repo backlog without failing. |
+| [`lint.yml`](../.github/workflows/lint.yml) | all (super-linter slim: ktlint, ESLint, ShellCheck, shfmt, hadolint, tflint, yamllint, markdownlint, ruff and more) | lint errors in files the PR changes. Formatter checks (Prettier, Biome) and whole-workspace scanners (Trivy) are off: formatting is each repo's choice and those scanners would fail every PR on inherited code. A scheduled `full-scan: true` run reports the whole-repo backlog without failing. |
 | [`python-ci.yml`](../.github/workflows/python-ci.yml) | Python (uv projects) | Ruff, strict Pyright, pytest + coverage, import contracts, deptry, vulture, jscpd, pip-audit |
 | [`node-ci.yml`](../.github/workflows/node-ci.yml) | TypeScript / JavaScript | lockfile install (install scripts off by default), the project's `lint`, `typecheck` and `test` scripts, production dependency audit |
 | [`security.yml`](../.github/workflows/security.yml) | every language | CodeQL per language, dependency review, secrets, workflow analysis |

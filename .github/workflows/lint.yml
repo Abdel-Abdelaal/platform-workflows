@@ -1,5 +1,5 @@
 # One lint gate for every language a repository contains, using super-linter
-# (slim image: ktlint, ESLint, Prettier, ShellCheck, shfmt, hadolint, tflint,
+# (slim image: ktlint, ESLint, ShellCheck, shfmt, hadolint, tflint,
 # yamllint, markdownlint, ruff and more). It picks linters per file type.
 #
 # Pull requests lint only the files they change, so inherited code doesn't block
@@ -40,6 +40,28 @@ jobs:
           VALIDATE_ALL_CODEBASE: ${{ inputs.full-scan }}
           FILTER_REGEX_EXCLUDE: ${{ inputs.exclude }}
           MULTI_STATUS: 'false'
+          # The job has read-only permissions, so it can't post a PR comment.
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: 'false'
+          # Formatting style belongs to each repository's own toolchain, and Biome
+          # and Trivy scan the whole workspace even on pull requests, so they would
+          # fail every PR on inherited code. Dependencies and IaC are scanned by
+          # OSV-Scanner and CodeQL in security; JS/TS lint runs the project's own
+          # lint script in node-ci.
+          VALIDATE_BIOME_FORMAT: 'false'
+          VALIDATE_BIOME_LINT: 'false'
+          VALIDATE_TRIVY: 'false'
+          VALIDATE_CSS_PRETTIER: 'false'
+          VALIDATE_GRAPHQL_PRETTIER: 'false'
+          VALIDATE_HTML_PRETTIER: 'false'
+          VALIDATE_JAVASCRIPT_PRETTIER: 'false'
+          VALIDATE_JSON_PRETTIER: 'false'
+          VALIDATE_JSONC_PRETTIER: 'false'
+          VALIDATE_JSX_PRETTIER: 'false'
+          VALIDATE_MARKDOWN_PRETTIER: 'false'
+          VALIDATE_TSX_PRETTIER: 'false'
+          VALIDATE_TYPESCRIPT_PRETTIER: 'false'
+          VALIDATE_VUE_PRETTIER: 'false'
+          VALIDATE_YAML_PRETTIER: 'false'
           # Covered elsewhere with fleet-specific settings, so not duplicated here:
           # Python formatting/typing (ruff + Pyright in python-ci), secrets
           # (gitleaks in security), workflows (actionlint + zizmor in security),
