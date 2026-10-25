@@ -326,6 +326,7 @@ def test_controller_limits_write_credentials_to_trusted_public_targets() -> None
     key_steps = [step for step in steps if "AI_API_KEY" in step.get("env", {})]
     assert len(key_steps) == 1
     assert "--apply" in key_steps[0]["run"]
-    assert key_steps[0]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token }}"
+    app_output_reference = "${{ steps.app.outputs.token }}"
+    assert key_steps[0]["env"]["GH_TOKEN"] == app_output_reference
     assert len(fleet.CALLERS) == 9
     assert "lint.yml" in fleet.CALLERS
