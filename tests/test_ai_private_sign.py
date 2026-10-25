@@ -85,12 +85,33 @@ def test_invalid_envelopes_fail_closed(
         signing.verify(record, bundle, public)
 
 
-@pytest.mark.parametrize("value", ["[]", "{}", '{"schema_version":2}'])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "[]",
+        "{}",
+        '{"schema_version":2}',
+        '{"schema_version":true}',
+        '{"schema_version":1.0}',
+    ],
+)
 def test_unsupported_records_cannot_be_signed(tmp_path: Path, value: str) -> None:
     record = tmp_path / "record.json"
     record.write_text(value)
     with pytest.raises(signing.SignatureError):
         signing.record_bytes(record)
+
+
+@pytest.mark.parametrize("payload", ["[]", "{", "{}"])
+def test_malformed_bundle_api_has_one_safe_failure(
+    tmp_path: Path, keys: tuple[Path, Path], payload: str
+) -> None:
+    record = tmp_path / "record.json"
+    record.write_text('{"schema_version":1}')
+    bundle = tmp_path / "bundle.json"
+    bundle.write_text(payload)
+    with pytest.raises(signing.SignatureError):
+        signing.verify(record, bundle, keys[1])
 
 
 def test_missing_key_and_oversized_record_are_rejected(tmp_path: Path) -> None:
@@ -140,7 +161,7 @@ def test_weak_rsa_key_is_not_accepted(tmp_path: Path) -> None:
     assert not bundle.exists()
 
 
-@pytest.mark.parametrize("mode", ["sign", "verify", "missing-public"])
+@pytest.mark.parametrize("mode", ["sign", "verify", "missing-public", "bad-verify"])
 def test_cli_sign_verify_and_required_trust_anchor(
     tmp_path: Path, keys: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
@@ -151,18 +172,22 @@ def test_cli_sign_verify_and_required_trust_anchor(
     monkeypatch.setenv("AI_TELEMETRY_SIGNING_KEY", private.read_text())
     args = [
         "signer",
-        mode if mode != "missing-public" else "verify",
+        "verify" if mode in {"missing-public", "bad-verify"} else mode,
         "--record",
         str(record),
         "--bundle",
         str(bundle),
     ]
-    if mode == "verify":
-        signing.sign(record, private.read_text(), bundle)
+    if mode in {"verify", "bad-verify"}:
+        if mode == "verify":
+            signing.sign(record, private.read_text(), bundle)
         args += ["--public-key", str(public)]
     monkeypatch.setattr(sys, "argv", args)
     if mode == "missing-public":
         with pytest.raises(SystemExit):
+            signing.main()
+    elif mode == "bad-verify":
+        with pytest.raises(SystemExit, match="details withheld"):
             signing.main()
     else:
         signing.main()

@@ -61,7 +61,8 @@ def record_bytes(record: Path) -> bytes:
     if len(payload) > MAX_RECORD_BYTES:
         raise SignatureError
     document = json.loads(payload)
-    if mapping(document).get("schema_version") != 1:
+    version = mapping(document).get("schema_version")
+    if type(version) is not int or version != 1:
         raise SignatureError
     return payload
 
@@ -100,7 +101,7 @@ def sign(record: Path, private_key: str, bundle: Path) -> None:
     bundle.write_text(json.dumps(envelope), encoding="utf-8")
 
 
-def verify(record: Path, bundle: Path, public_key: Path) -> None:
+def _verify(record: Path, bundle: Path, public_key: Path) -> None:
     """Verify against an explicitly trusted public key, never an embedded key."""
     if bundle.stat().st_size > MAX_RECORD_BYTES * 2:
         raise SignatureError
@@ -137,6 +138,22 @@ def verify(record: Path, bundle: Path, public_key: Path) -> None:
                 str(message),
             ]
         )
+
+
+def verify(record: Path, bundle: Path, public_key: Path) -> None:
+    """Reject all unavailable, malformed or invalid evidence with one safe error."""
+    try:
+        _verify(record, bundle, public_key)
+    except (
+        SignatureError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        subprocess.SubprocessError,
+    ):
+        raise SignatureError from None
 
 
 def main() -> None:
