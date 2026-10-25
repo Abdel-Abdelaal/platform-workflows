@@ -107,3 +107,9 @@ own lint, strict types, tests/coverage, dependency audit and security workflows.
 The live provider smoke test uses Flash through the same isolated runner.
 
 See [ADR 0004](decisions/0004-isolate-ai-and-keep-feedback-advisory.md).
+
+The hosted workflow also scans the protected handbook snapshot before analysis.
+Only `standards/*.md` enters the context; handbook files are data and are never
+executed. Provider jobs install locked runtime dependencies with `--no-dev`.
+The separate hook validation and test jobs install developer tools without provider
+or App credentials. CI audits runtime and default development dependencies.

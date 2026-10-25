@@ -1,0 +1,56 @@
+name: Frozen pre-commit validation
+on:
+  workflow_call:
+    inputs:
+      configuration:
+        type: string
+        default: .pre-commit-config.yaml
+permissions: {}
+jobs:
+  hooks:
+    name: Hooks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repository
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Abdel-Abdelaal/platform-workflows
+          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          path: platform
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Validate the configuration path
+        working-directory: platform
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+        run: |
+          case "$CONFIGURATION" in .pre-commit-config.yaml|baseline/.pre-commit-config.yaml) ;; *) exit 1 ;; esac
+          uv run --locked python -c 'import os; from pathlib import Path; from tools.baseline import validate_path; validate_path(Path(os.environ["GITHUB_WORKSPACE"]) / "repository", os.environ["CONFIGURATION"])'
+      - name: Validate and run frozen hooks without provider or App credentials
+        working-directory: repository
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+        run: |
+          uv run --locked --project "$GITHUB_WORKSPACE/platform" pre-commit validate-config "$CONFIGURATION"
+          uv run --locked --project "$GITHUB_WORKSPACE/platform" pre-commit run --all-files --config "$CONFIGURATION" --show-diff-on-failure
+  report:
+    needs: hooks
+    if: failure() && github.event_name == 'schedule'
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Scheduled frozen hook validation failed

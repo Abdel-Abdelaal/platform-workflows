@@ -1,0 +1,62 @@
+name: Stale item maintenance
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        type: boolean
+        default: false
+permissions: {}
+concurrency:
+  group: stale-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  sweep:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - name: Check the canonical stale label
+        id: label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          labels=$(gh api "repos/$GH_REPO/labels?per_page=100" --paginate --jq '.[].name')
+          ready=false
+          if echo "$labels" | grep --fixed-strings --line-regexp --quiet stale; then ready=true; fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          if [ "$ready" = false ]; then
+            echo 'Mutation skipped until governance applies the canonical stale label. Dry-run remains available.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        if: steps.label.outputs.ready == 'true' || inputs.dry-run
+        with:
+          debug-only: ${{ inputs.dry-run }}
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: 'priority: critical,blocked,governance,security'
+          exempt-pr-labels: 'priority: critical,blocked,governance,security,dependencies,autorelease: pending'
+          exempt-draft-pr: true
+          operations-per-run: 50
+          stale-issue-message: 'No activity for 60 days. Reply or update this issue to keep it open; closure follows after 14 further days.'
+          stale-pr-message: 'No activity for 30 days. Reply or update this PR to keep it open; closure follows after 7 further days.'
+          close-issue-message: 'Closed after the inactivity window. Reopen with current evidence if work is still needed.'
+          close-pr-message: 'Closed after the inactivity window. Reopen or submit an updated proposal when ready.'
+  report:
+    needs: sweep
+    if: failure() && github.event_name == 'schedule'
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Scheduled stale sweep failed
