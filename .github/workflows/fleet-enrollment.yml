@@ -1,0 +1,79 @@
+name: Enroll future public repositories
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: fleet-enrollment
+  cancel-in-progress: false
+jobs:
+  enroll:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Plan with public reads only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --locked --no-dev python -m tools.fleet_onboarding --output "$RUNNER_TEMP/enrollment-plan.json"
+      - name: Limit the installation token to discovered public repositories
+        id: targets
+        run: |
+          uv run --locked --no-dev python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          plan = json.loads((Path(os.environ['RUNNER_TEMP']) / 'enrollment-plan.json').read_text())
+          names = sorted(item['repository'].split('/')[1] for item in plan['repositories'])
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write('repositories=' + ','.join(names) + '\n')
+          PY
+      - name: Check automation App setup
+        id: available
+        env:
+          BOT_ID: ${{ secrets.BOT_APP_ID }}
+          BOT_KEY: ${{ secrets.BOT_APP_KEY }}
+        run: |
+          ready=false
+          if [ -n "$BOT_ID" ] && [ -n "$BOT_KEY" ]; then ready=true; fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          if [ "$ready" = false ]; then
+            echo 'Read-only enrollment plan complete. Draft PR creation requires the automation App.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        if: steps.available.outputs.ready == 'true' && steps.targets.outputs.repositories != ''
+        id: app
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_KEY }}
+          owner: Abdel-Abdelaal
+          repositories: ${{ steps.targets.outputs.repositories }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-secrets: write
+      - name: Open reviewed public enrollment proposals
+        if: steps.app.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        run: uv run --locked --no-dev python -m tools.fleet_onboarding --apply --output "$RUNNER_TEMP/enrollment-plan.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: public-enrollment-plan
+          path: ${{ runner.temp }}/enrollment-plan.json
+          retention-days: 14

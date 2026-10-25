@@ -6,9 +6,10 @@ them with the reviewed starter at the immutable `BASELINE_COMMIT` in the tool.
 The public dashboard independently discovers those repositories; discovery alone
 does not install any engineering processes.
 
-The tool is prepared for a scheduled controller, but automatic enrollment is
-**not active** until an automation GitHub App and a pinned caller are configured
-and a real hosted enrollment proves it. No personal access token fallback exists.
+The daily default-branch `fleet-enrollment.yml` controller plans with read-only
+permissions. Without App credentials it uploads a public plan and explicitly
+skips writing. Automatic enrollment proposals are **not active** until the App
+is configured and a real hosted enrollment proves them. No personal access token fallback exists.
 `--apply` first requires the installation-repositories endpoint to work.
 
 ## Reviewable changes
@@ -37,13 +38,20 @@ Use a separate automation App from the administration-capable governance App.
 The enrollment controller needs repository contents, pull requests and workflows
 write, plus metadata read. Automatic provisioning of a missing `AI_API_KEY` also
 needs repository secrets write. Existing secrets are preserved, including when
-they occur after the first API page. If that broader permission is not granted,
-omit the controller's provider key and provision new repository secrets manually.
+they occur after the first API page. The committed controller requests that scope;
+for manual provisioning, review a change removing its `permission-secrets` input
+and `AI_API_KEY` environment entry before omitting that App permission.
 No App private key or token is ever given to a model.
+
+The exact owner-only App permission proposal is
+[`fleet-automation-app.json`](fleet-automation-app.json), using the
+[GitHub App manifest format](https://github.com/github/docs/blob/main/content/apps/sharing-github-apps/registering-a-github-app-from-a-manifest.md).
+It requests no administration, public transparency, webhook, model or billing
+access. App creation/installation requires the owner's review of these permissions.
 
 Store the App ID/private key only in the controller repository's `BOT_APP_ID` and
 `BOT_APP_KEY` secrets. Before minting its write token, the eventual controller
-must discover and scope the token to eligible public repository names; do not
+discovers and scopes the token to eligible public repository names; do not
 place private installation metadata in a public artifact or log. Restrict the
 controller to trusted default-branch schedule/dispatch events. The tool rechecks
 visibility before proposal creation. Public output includes only eligible public
