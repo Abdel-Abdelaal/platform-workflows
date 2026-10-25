@@ -104,4 +104,6 @@ def test_github_api_uses_json_stdin_without_shell(
     monkeypatch.setattr(github_api.subprocess, "run", run)
     result = github_api.github_api("repos/owner/repo/issues", "POST", body)
     assert "shell" not in run.call_args.kwargs
+    assert run.call_args.kwargs["encoding"] == "utf-8"
+    assert run.call_args.kwargs["timeout"] == 60
     assert result == ({"ok": True} if output else None)
