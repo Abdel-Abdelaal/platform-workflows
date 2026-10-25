@@ -25,7 +25,7 @@ https://github.com/Abdel-Abdelaal/.github/tree/main/standards.
 ## Glossary
 
 | Name | Meaning |
-|---|---|
+| --- | --- |
 | caller | repo workflow invoking a reusable workflow |
 | platform | this repository of reusable automation |
 | baseline | common files distributed from the .github repository |

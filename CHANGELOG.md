@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.9.0...v1.9.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **lint:** leave prose wording to the handbook ([#54](https://github.com/Abdel-Abdelaal/platform-workflows/issues/54)) ([5648ffe](https://github.com/Abdel-Abdelaal/platform-workflows/commit/5648ffecde4e88131cc0f8b479dff162d87609e8))
+
 ## [1.9.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.8.0...v1.9.0) (2026-10-25)
 
 
