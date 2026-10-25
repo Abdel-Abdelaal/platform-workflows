@@ -77,7 +77,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -147,7 +147,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PLATFORM_RELEASE: unreleased-private-telemetry
-          TOOLING_COMMIT: cf3e9b24d603fd8e1fee05d4d062682281825bcb
+          TOOLING_COMMIT: 5d437eeae812261a7a05464ac68c71a61caa43f3
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
@@ -203,7 +203,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -250,7 +250,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -299,7 +299,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -364,7 +364,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -454,7 +454,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
+          ref: 5d437eeae812261a7a05464ac68c71a61caa43f3 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -482,7 +482,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PLATFORM_RELEASE: unreleased-private-telemetry
-          TOOLING_COMMIT: cf3e9b24d603fd8e1fee05d4d062682281825bcb
+          TOOLING_COMMIT: 5d437eeae812261a7a05464ac68c71a61caa43f3
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
         run: uv run --locked --no-dev python -m tools.ai_telemetry_archive finalize --directory "$GITHUB_WORKSPACE/evidence" --record "$RUNNER_TEMP/ai-record.json"
