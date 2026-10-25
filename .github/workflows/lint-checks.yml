@@ -1,0 +1,14 @@
+name: Lint
+on:
+  pull_request:
+  schedule:
+    - cron: '20 5 * * 1'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+    with:
+      full-scan: ${{ github.event_name != 'pull_request' }}
