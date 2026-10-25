@@ -17,6 +17,9 @@ model input before the runner receives its provider key: bounded source/handbook
 the PR diff, selected prompt and appended health/current-reference data. The
 independent security workflow continues repository-history scanning. Local/server
 operators must scan their prepared input and checkout before provider use.
+Context includes Python/Terraform, Android Kotlin/Java, JavaScript/TypeScript,
+Go/Rust, shell and SQL implementation plus text configuration and UI resources.
+Generated build and dependency directories are excluded even when tracked.
 Context prioritizes implementation/tests and attaches only standards/*.md from
 the handbook, rather than its baseline/workflow bulk. File reads and metadata are
 bounded; omitted/truncated files and partial diffs are explicit so absence cannot
