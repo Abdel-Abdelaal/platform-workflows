@@ -44,13 +44,17 @@ def parse_analysis(text: str) -> Analysis:
     return Analysis.model_validate_json(text)
 
 
-def extract_text(events: str) -> str:
+def extract_text(events: str, *, tolerant: bool = False) -> str:
     """Read only final text events, never tool commands, from OpenCode JSONL."""
     fragments: list[str] = []
     for line in events.splitlines():
-        event = json.loads(line)
-        if event.get("type") == "text":
-            fragments.append(str(event["part"]["text"]))
+        try:
+            event = json.loads(line)
+            if event.get("type") == "text":
+                fragments.append(str(event["part"]["text"]))
+        except (ValueError, TypeError, KeyError, AttributeError):
+            if not tolerant:
+                raise
     return "".join(fragments)
 
 

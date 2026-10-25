@@ -7,16 +7,67 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, ValidationError
 
 from tools.ai_telemetry import mapping, new_record, save, timestamp
+
+
+class AttemptEnvelope(BaseModel):
+    """Validate the execution fields the finalizer and aggregator consume."""
+
+    attributes: dict[str, int]
+    duration_seconds: float = Field(ge=0)
+    exit_category: str
+
+
+class RecordEnvelope(BaseModel):
+    """Validate required v1 evidence without interpreting the model's text."""
+
+    schema_version: Literal[1]
+    record_id: str = Field(min_length=1)
+    identity: dict[str, str]
+    attempts: list[AttemptEnvelope]
+    status: Literal["valid", "no_valid_output", "skipped"]
+
+
+def incoming_record(source: Path) -> dict[str, Any] | None:
+    """Convert missing, malformed or partial evidence into an explicit gap."""
+    try:
+        text = source.read_text(encoding="utf-8")
+        RecordEnvelope.model_validate_json(text, strict=True)
+    except (OSError, UnicodeError, ValidationError):
+        return None
+    return mapping(json.loads(text))
+
+
+class ReceiptEnvelope(BaseModel):
+    """Require a status before treating publisher evidence as a receipt."""
+
+    status: str = Field(min_length=1)
+
+
+def read_receipts(directory: Path) -> tuple[list[dict[str, Any]], int]:
+    """Retain valid receipts while counting damaged publication evidence."""
+    receipts: list[dict[str, Any]] = []
+    invalid = 0
+    for path in sorted(directory.glob("**/publication.json")):
+        try:
+            text = path.read_text(encoding="utf-8")
+            ReceiptEnvelope.model_validate_json(text, strict=True)
+        except (OSError, UnicodeError, ValidationError):
+            invalid += 1
+        else:
+            receipts.append(mapping(json.loads(text)))
+    return receipts, invalid
 
 
 def finalize(directory: Path, destination: Path) -> None:
     """Join analysis and publication evidence, explicitly representing gaps."""
     source = directory / "ai-record.json"
-    if source.is_file():
-        record = mapping(json.loads(source.read_text(encoding="utf-8")))
-    else:
+    record = incoming_record(source)
+    if record is None:
         record = new_record("", "", thinking=os.environ.get("MODE") == "review")
         record["status"] = (
             "skipped"
@@ -29,12 +80,16 @@ def finalize(directory: Path, destination: Path) -> None:
             else "analysis job failed before record upload"
         )
         record["configuration"] = {"available": False}
+        if source.exists():
+            record.update(
+                status="no_valid_output", skip_reason="invalid incoming evidence"
+            )
+        record["evidence_gap"] = True
     record["job_results"] = mapping(json.loads(os.environ.get("JOB_RESULTS", "{}")))
     record["finalized_at"] = timestamp()
-    receipts = sorted(directory.glob("**/publication.json"))
-    record["publication"] = [
-        mapping(json.loads(p.read_text(encoding="utf-8"))) for p in receipts
-    ]
+    receipts, invalid = read_receipts(directory)
+    record["publication"] = receipts
+    record["invalid_publication_receipts"] = invalid
     if not receipts:
         record["publication"] = [
             {"status": "not_published", "reason": "see job_results"}
@@ -96,8 +151,6 @@ def archive(record: Path, bundle: Path, directory: Path) -> None:
                 tag,
                 "--repo",
                 repository,
-                "--target",
-                "main",
                 "--prerelease",
                 "--latest=false",
                 "--title",

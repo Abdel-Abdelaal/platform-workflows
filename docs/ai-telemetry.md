@@ -8,11 +8,16 @@ adding these tools alone does not activate collection.
 
 `identity` holds repository, run ID and attempt, event, caller workflow, PR number,
 head SHA, mode, platform release and executable tooling commit. `record_id` is a
-UUID. UTC start/end timestamps cover the analysis; finalization has its own time.
+UUID. When supplied by CI, handbook and actual source checkout commits identify
+the snapshots independently of a PR's head commit. Missing values are unknown.
+UTC start/end timestamps cover the analysis; finalization has its own time.
 `configuration` records thinking and JSON settings, prompt name/hash, system prompt
 hash, context hash/character count and glossary availability. `context_manifest`
 lists included, truncated and omitted eligible source files, including handbook
 files. Excluded credential/configuration files are never read into context.
+The production workflow supplies the exact manifest. Local calls without one, or
+with a damaged manifest, set `configuration.manifest_complete` to false and use
+`present_in_context` estimates; omitted files remain unknown in that fallback.
 The repository checkout SHA and context hash identify input; raw source is not
 duplicated. A truncated context cannot be interpreted as a complete repository.
 
@@ -21,12 +26,17 @@ bounded response text (100,000 characters), its full digest and truncation flag,
 OpenCode usage components and finish reasons. Raw response text is untrusted data.
 Validation errors exclude offending inputs, messages and context. Retries append
 the system prompt to the original prompt; failed responses never become prompts.
+Each attempt hashes its actual prompt, including the retry suffix. Diff hash and
+character count are recorded independently of the context digest.
 The validated `analysis` retains summary, proposed comments and patch.
 `findings` records proposed/eligible/dropped counts and eligible locations.
 `patch_check` records accepted paths or rejection by the path/size validator; it
 does not claim the patch applied or passed tests. `job_results` supplies subsequent
 test/proposal job outcomes. `publication` contains actual publisher receipts with
 comment/check/issue IDs; absence is explicitly `not_published`.
+If the summary was posted but check creation failed, a `partially_published`
+receipt preserves the comment ID. Invalid incoming record/receipt shapes become
+explicit evidence gaps or invalid-receipt counts instead of preventing archival.
 
 ### OpenTelemetry vocabulary
 
