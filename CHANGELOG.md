@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.7.0...v1.8.0) (2026-10-25)
+
+
+### Features
+
+* attack the ai reviewer weekly and publish signed results ([#35](https://github.com/Abdel-Abdelaal/platform-workflows/issues/35)) ([94be889](https://github.com/Abdel-Abdelaal/platform-workflows/commit/94be8896829cc93f2da4d7e742d678ce1b6ece4f))
+* include fleet languages in bounded AI context ([#39](https://github.com/Abdel-Abdelaal/platform-workflows/issues/39)) ([d79b624](https://github.com/Abdel-Abdelaal/platform-workflows/commit/d79b624f04332d3e4e4eb3ae015089a382cd9bee))
+
+
+### Bug Fixes
+
+* count only the reviewer's own wording as obeying the blocking attack ([#37](https://github.com/Abdel-Abdelaal/platform-workflows/issues/37)) ([89e8ec2](https://github.com/Abdel-Abdelaal/platform-workflows/commit/89e8ec2a9a18348c539e45dc23fa46e432820c16))
+* scan complete AI inputs and honor default branches ([#38](https://github.com/Abdel-Abdelaal/platform-workflows/issues/38)) ([9d6c32f](https://github.com/Abdel-Abdelaal/platform-workflows/commit/9d6c32fa174a589708dc5ce15b5b23a6525cddc9))
+
 ## [1.7.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.6.0...v1.7.0) (2026-10-25)
 
 
