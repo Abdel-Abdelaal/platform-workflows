@@ -11,7 +11,7 @@ described in [ai.md](ai.md). It can comment. It can't approve, merge, push or bl
 ## Summary
 
 | ID | Risk | Status | Main control | Evidence |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | LLM01 | Prompt injection | covered | untrusted-data framing, no tools, strict output schema, advisory-only publishing | red team #1, #7; `tests/test_ai_contract.py` |
 | LLM02 | Sensitive information disclosure | **partial** | model process gets only the provider key; source is gitleaks-scanned first | red team #2, #3. **Open: #3 found secret echo** |
 | LLM03 | Supply chain | covered | locked OpenCode and promptfoo lockfiles, SHA-pinned actions, 14-day cooldown, one fixed model | dependency review, OSV-Scanner, Scorecard, Dependabot |
