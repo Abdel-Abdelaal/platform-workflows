@@ -11,9 +11,15 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
-from tools.ai_contract import Analysis, UnsafePatchError, valid_findings, validate_patch
+from tools.ai_contract import (
+    Analysis,
+    UnsafePatchError,
+    extract_text,
+    valid_findings,
+    validate_patch,
+)
 
 CURRENT: ContextVar[dict[str, Any] | None] = ContextVar("ai_record", default=None)
 MAX_RESPONSE_CHARACTERS = 100000
@@ -50,6 +56,8 @@ def new_record(context: str, prompt: str, *, thinking: bool) -> dict[str, Any]:
             "MODE",
             "PLATFORM_RELEASE",
             "TOOLING_COMMIT",
+            "HANDBOOK_SHA",
+            "SOURCE_CHECKOUT_SHA",
         )
     }
     return {
@@ -133,7 +141,9 @@ def event_usage(events: str) -> dict[str, Any]:
     }
 
 
-def record_attempt(events: str, duration: float, error: Exception | None) -> None:
+def record_attempt(
+    events: str, duration: float, error: Exception | None, *, prompt: str = ""
+) -> None:
     """Retain response text as bounded data and errors without offending values."""
     record = CURRENT.get()
     if record is None:
@@ -142,6 +152,7 @@ def record_attempt(events: str, duration: float, error: Exception | None) -> Non
         "duration_seconds": duration,
         "exit_category": type(error).__name__ if error else "ok",
         **event_usage(events),
+        "prompt_sha256": digest(prompt),
     }
     if isinstance(error, ValidationError):
         attempt["validation_errors"] = [
@@ -150,15 +161,7 @@ def record_attempt(events: str, duration: float, error: Exception | None) -> Non
                 include_url=False, include_input=False, include_context=False
             )
         ]
-    fragments: list[str] = []
-    for line in events.splitlines():
-        try:
-            event = json.loads(line)
-            if event.get("type") == "text":
-                fragments.append(str(event["part"]["text"]))
-        except (ValueError, TypeError, KeyError, AttributeError):
-            continue
-    response = "".join(fragments)
+    response = extract_text(events, tolerant=True)
     attempt["response"] = response[:MAX_RESPONSE_CHARACTERS]
     attempt["response_sha256"] = digest(response)
     attempt["response_truncated"] = len(response) > MAX_RESPONSE_CHARACTERS
@@ -206,6 +209,23 @@ def save(record: dict[str, Any], path: Path) -> None:
 def context_manifest(context: str) -> list[dict[str, str]]:
     """Read bounded source delimiters, retaining names only as untrusted data."""
     return [
-        {"path": match, "status": "included"}
+        {"path": match, "status": "present_in_context"}
         for match in re.findall(r"^--- UNTRUSTED SOURCE: (.*?) ---$", context, re.M)
     ]
+
+
+def attach_manifest(record: dict[str, Any], context: str, path: Path | None) -> None:
+    """Distinguish a complete source manifest from a degraded delimiter estimate."""
+    record["configuration"]["manifest_complete"] = False
+    record["context_manifest"] = context_manifest(context)
+    if path is None:
+        return
+    try:
+        manifest = TypeAdapter(list[dict[str, str]]).validate_json(
+            path.read_text(encoding="utf-8"), strict=True
+        )
+    except (OSError, UnicodeError, ValidationError) as error:
+        record["configuration"]["manifest_error"] = type(error).__name__
+    else:
+        record["context_manifest"] = manifest
+        record["configuration"]["manifest_complete"] = True
