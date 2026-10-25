@@ -1,0 +1,40 @@
+name: Repository conformance
+on:
+  workflow_call:
+permissions: {}
+jobs:
+  check:
+    name: Conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repository
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Abdel-Abdelaal/platform-workflows
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
+          path: platform
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Inspect configuration as data
+        working-directory: platform
+        run: uv run --locked --no-dev python -m tools.conformance "$GITHUB_WORKSPACE/repository"
+  report:
+    needs: check
+    if: failure() && github.event_name == 'schedule'
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Scheduled repository conformance failed

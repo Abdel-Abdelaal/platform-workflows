@@ -72,7 +72,7 @@ pins the coding CLI and native packages; Dependabot monitors npm, uv and Actions
 
 ## Python quality gates
 
-Call `python-ci.yml@v1` as job `ci` with `contents: read`, then require its real
+Call `python-ci.yml` pinned to the reviewed release commit SHA as job `ci` with `contents: read`, then require its real
 check names after the first successful consumer run. Inputs: `python-version`
 (default 3.12) and `coverage-min` (default 90). Optional SONAR_TOKEN is passed
 explicitly; analysis also needs verified sonar-project.properties in the consumer.
@@ -81,7 +81,7 @@ pip-audit. Fork PRs never receive provider or deployment credentials.
 
 ## Security checks
 
-Call `security.yml@v1` with a JSON `languages` input, such as `["python","actions"]`.
+Call `security.yml` pinned to the reviewed release commit SHA with a JSON `languages` input, such as `["python","actions"]`.
 Caller permissions must include contents read, pull-requests write and
 security-events write; each job narrows that set. Fork and Dependabot dependency
 reviews do not try to post privileged comments. No PR source receives App keys.
@@ -103,3 +103,15 @@ Weekly audits maintain one health issue. A bounded, tested draft fix PR is possi
 only after the automation App is configured; otherwise that step skips explicitly.
 No AI check is required for merging, and no AI workflow can merge or approve.
 See [the isolation design](https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai.md).
+
+## Reviewed maintenance workflows
+
+`conformance.yml` inspects tracked policy configuration as data using immutable,
+tested tooling; it never executes checked-out repository code. `baseline-sync.yml`
+prepares only allowlisted files and opens a normal PR on `bot/baseline-sync`.
+It skips explicitly until the automation App is configured. Because the managed
+baseline includes a Scorecard workflow, the narrowly repository-scoped token needs
+contents, pull-requests and workflows write permissions. No baseline job can merge.
+AI workflows use the same reviewed tooling commit, including bounded JSON retries
+and sanitized failure handling. Consumers must upgrade their pinned workflow SHA
+to obtain these changes; a moving tag does not change an existing pinned caller.
