@@ -75,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,6 +117,8 @@ jobs:
             touch "$RUNNER_TEMP/pr.diff"
           fi
           uv run --locked --no-dev python -m tools.ai_context --repository "$GITHUB_WORKSPACE/repository" --handbook "$GITHUB_WORKSPACE/handbook" --diff "$RUNNER_TEMP/pr.diff" --output "$RUNNER_TEMP/context.md" --manifest "$RUNNER_TEMP/context-manifest.json"
+          echo "HANDBOOK_SHA=$(git -C "$GITHUB_WORKSPACE/handbook" rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_CHECKOUT_SHA=$(git -C "$GITHUB_WORKSPACE/repository" rev-parse HEAD)" >> "$GITHUB_ENV"
           if [ "$MODE" = fix ]; then
             gh issue list --state open --label governance --search '"Weekly health report" in:title' --json title,body > "$RUNNER_TEMP/health-report.json"
             head -c 20000 "$RUNNER_TEMP/health-report.json" >> "$RUNNER_TEMP/context.md"
@@ -134,7 +136,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PLATFORM_RELEASE: v1.7.0
-          TOOLING_COMMIT: 2a7948d382d514ea223c7f21391df665680db8c0
+          TOOLING_COMMIT: a07b3774a5d3f90b15a2dc147077d0f0f71a509f
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
@@ -187,7 +189,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -209,9 +211,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: uv run --locked --no-dev python -m tools.ai_publish --mode review --repository "$GH_REPO" --number "$PR_NUMBER" --head-sha "$HEAD_SHA" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --diff "$GITHUB_WORKSPACE/analysis/pr.diff" --receipt "$RUNNER_TEMP/publication.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
           path: ${{ runner.temp }}/publication.json
+          if-no-files-found: ignore
           retention-days: 90
   publish-audit:
     name: Publish weekly health report
@@ -229,7 +233,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -249,9 +253,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: uv run --locked --no-dev python -m tools.ai_publish --mode audit --repository "$GH_REPO" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --receipt "$RUNNER_TEMP/publication.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
           path: ${{ runner.temp }}/publication.json
+          if-no-files-found: ignore
           retention-days: 90
   validate-fix:
     name: Test proposed patch without provider or App credentials
@@ -275,7 +281,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -338,7 +344,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -427,7 +433,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -448,7 +454,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PLATFORM_RELEASE: v1.7.0
-          TOOLING_COMMIT: 2a7948d382d514ea223c7f21391df665680db8c0
+          TOOLING_COMMIT: a07b3774a5d3f90b15a2dc147077d0f0f71a509f
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
         run: uv run --locked --no-dev python -m tools.ai_telemetry_archive finalize --directory "$GITHUB_WORKSPACE/evidence" --record "$RUNNER_TEMP/ai-record.json"
