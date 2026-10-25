@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Reusable GitHub Actions workflows. Follow the shared handbook at
-https://github.com/Abdel-Abdelaal/.github/tree/main/standards.
+<https://github.com/Abdel-Abdelaal/.github/tree/main/standards>.
 
 ## Commands
 
