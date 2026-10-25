@@ -134,3 +134,9 @@ releases. It has no personal-token fallback. Missing App setup skips explicitly.
 Release-please's pinned engine17.6.0 needs `.name.value` in the uv.lock TOML selector;
 that selector was tested against real lock data and changes only the root package.
 App-based release creation still needs owner setup and a live integration run.
+
+Maintenance callers now pin platform v1.5.0 (`e26d5b07bdee2fc54ed5bd607d8041f7fbeaadaf`).
+Its corrected AI runtime awaits consumer audit verification. Frozen hook checks
+run where a hook configuration is supported; native Dependabot maintains baseline
+hook revisions. Stale/release mutations remain explicitly gated on canonical
+labels and maintenance App setup. The Python audit includes development tooling.
