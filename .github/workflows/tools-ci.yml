@@ -16,6 +16,7 @@ jobs:
     uses: ./.github/workflows/hooks.yml
     permissions:
       contents: read
+      issues: write
   report:
     needs: [ci, hooks]
     if: failure() && github.event_name == 'schedule'
