@@ -1,6 +1,6 @@
 # Immutable PR-Agent trial runtime
 
-The upstream GitHub action at reviewed source commit
+The upstream GitHub Action at reviewed source commit
 `8e5a9295973b24af4b70cafd0b660a230811ef9e` builds from the mutable
 `pragent/pr-agent:github_action` tag. Pinning its action source therefore does not
 identify the executed image. This adapter pins the published 0.47.0 manifest digest
