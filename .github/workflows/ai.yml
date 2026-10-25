@@ -31,6 +31,7 @@ jobs:
       issues: read
     outputs:
       ready: ${{ steps.available.outputs.ready }}
+      evidence_artifact: ${{ steps.evidence.outputs.artifact-id }}
     steps:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
@@ -158,6 +159,7 @@ jobs:
           fi
           "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/model-evidence" --redact --no-banner --exit-code 1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: evidence
         if: always() && steps.evidence-scan.outcome == 'success'
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-analysis
@@ -182,6 +184,8 @@ jobs:
       contents: read
       pull-requests: write
       checks: write
+    outputs:
+      receipt_artifact: ${{ steps.receipt.outputs.artifact-id }}
     steps:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
@@ -211,6 +215,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: uv run --locked --no-dev python -m tools.ai_publish --mode review --repository "$GH_REPO" --number "$PR_NUMBER" --head-sha "$HEAD_SHA" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --diff "$GITHUB_WORKSPACE/analysis/pr.diff" --receipt "$RUNNER_TEMP/publication.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: receipt
         if: always()
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
@@ -226,6 +231,8 @@ jobs:
     permissions:
       contents: read
       issues: write
+    outputs:
+      receipt_artifact: ${{ steps.receipt.outputs.artifact-id }}
     steps:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
@@ -253,6 +260,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: uv run --locked --no-dev python -m tools.ai_publish --mode audit --repository "$GH_REPO" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --receipt "$RUNNER_TEMP/publication.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: receipt
         if: always()
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
@@ -332,6 +340,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      receipt_artifact: ${{ steps.receipt.outputs.artifact-id }}
     steps:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
@@ -406,6 +416,7 @@ jobs:
         run: |
           jq -n '{status: "proposal_processed", number: env.PR_NUMBER, url: env.PR_URL, operation: env.OPERATION}' > "$RUNNER_TEMP/publication.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: receipt
         with:
           name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
           path: ${{ runner.temp }}/publication.json
@@ -443,8 +454,15 @@ jobs:
       - run: uv sync --locked --no-dev
         working-directory: platform
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.analyze.outputs.evidence_artifact != ''
         with:
-          pattern: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-*
+          artifact-ids: ${{ needs.analyze.outputs.evidence_artifact }}
+          path: evidence
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.publish-review.outputs.receipt_artifact != '' || needs.publish-audit.outputs.receipt_artifact != '' || needs.propose-fix.outputs.receipt_artifact != ''
+        with:
+          artifact-ids: ${{ needs.publish-review.outputs.receipt_artifact || needs.publish-audit.outputs.receipt_artifact || needs.propose-fix.outputs.receipt_artifact }}
           path: evidence
           merge-multiple: true
       - name: Join evidence without executing analyzed source

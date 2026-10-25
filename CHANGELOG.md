@@ -11,4 +11,5 @@
 
 ### Bug Fixes
 
+* bind signed AI evidence to trusted producer artifacts ([700eeec](https://github.com/Abdel-Abdelaal/platform-workflows/commit/700eeec98772931724136eaeafdc0da6bbe5eb8c))
 * preserve honest telemetry evidence across failure paths ([#32](https://github.com/Abdel-Abdelaal/platform-workflows/issues/32)) ([a07b377](https://github.com/Abdel-Abdelaal/platform-workflows/commit/a07b3774a5d3f90b15a2dc147077d0f0f71a509f))
