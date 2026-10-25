@@ -88,6 +88,9 @@ binary before any upload; a finding blocks publication. Raw model output stays
 out of CI logs. Artifact/release/attestation publishing runs trusted tooling in a
 separate job that does not execute analyzed source. Read-only analysis jobs never
 receive the archive writer's GitHub permissions.
+The signer downloads only artifact IDs returned by the trusted analysis and
+publisher jobs. It does not merge artifacts selected by a name glob, so unrelated
+artifacts from a patch-test job cannot substitute telemetry input.
 
 GitHub cannot grant write/OIDC permissions to fork PRs or Dependabot PR workflows;
 those must not receive the provider key. No provider run occurs there. Credential
