@@ -50,7 +50,63 @@ def test_snapshot_obeys_context_budget(
         Mock(return_value=CompletedProcess([], 0, "main.py\0")),
     )
     monkeypatch.setattr(ai_context, "MAX_CONTEXT_CHARACTERS", 1)
-    assert ai_context.snapshot(tmp_path) == ""
+    result = ai_context.snapshot(tmp_path)
+    assert "UNTRUSTED SOURCE" not in result
+    assert "CONTEXT BOUNDS" in result
+
+
+def test_code_priority_and_smaller_files_survive_budget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    files = {
+        ".github/workflows/large.yml": "x" * 1000,
+        "src/main.py": "business",
+        "docs/note.md": "small",
+    }
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    monkeypatch.setattr(
+        ai_context.subprocess,
+        "run",
+        Mock(return_value=CompletedProcess([], 0, "\0".join(files))),
+    )
+    monkeypatch.setattr(ai_context, "MAX_CONTEXT_CHARACTERS", 180)
+    monkeypatch.setattr(ai_context, "MAX_FILE_CHARACTERS", 100)
+    text = ai_context.snapshot(tmp_path)
+    assert "business" in text
+    assert "small" in text
+    assert "CONTEXT BOUNDS: 1" in text
+    assert "x" * 100 not in text
+
+
+def test_handbook_snapshot_reads_standards_without_baseline_bulk(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    files = {"baseline/bulk.md": "not rules", "standards/security.md": "actual rules"}
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    monkeypatch.setattr(
+        ai_context.subprocess,
+        "run",
+        Mock(return_value=CompletedProcess([], 0, "\0".join(files))),
+    )
+    text = ai_context.snapshot(tmp_path, prefix="standards/")
+    assert "actual rules" in text
+    assert "not rules" not in text
+
+
+def test_partial_diff_is_explicit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ai_context, "MAX_CONTEXT_CHARACTERS", 3)
+    monkeypatch.setattr(ai_context, "snapshot", Mock(return_value=""))
+    assert "DIFF TRUNCATED" in ai_context.build_context(tmp_path, "abcdef")
 
 
 def test_glossary_is_data_without_other_agent_instructions(tmp_path: Path) -> None:
@@ -76,8 +132,12 @@ def test_context_labels_diff_as_untrusted(
 
 
 @pytest.mark.parametrize("with_diff", [False, True])
+@pytest.mark.parametrize("with_handbook", [False, True])
 def test_context_cli(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_diff: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    with_diff: bool,
+    with_handbook: bool,
 ) -> None:
     output = tmp_path / "context.md"
     args = ["tool", "--repository", str(tmp_path), "--output", str(output)]
@@ -85,7 +145,12 @@ def test_context_cli(
         diff = tmp_path / "diff.txt"
         diff.write_text("diff")
         args.extend(["--diff", str(diff)])
+    if with_handbook:
+        args.extend(["--handbook", str(tmp_path)])
     monkeypatch.setattr(sys, "argv", args)
-    monkeypatch.setattr(ai_context, "snapshot", Mock(return_value="source"))
+    snapshot = Mock(return_value="source")
+    monkeypatch.setattr(ai_context, "snapshot", snapshot)
     ai_context.main()
     assert "source" in output.read_text()
+    if with_handbook:
+        assert snapshot.call_args.kwargs == {"prefix": "standards/"}

@@ -14,7 +14,10 @@ fork PRs and Dependabot PRs never receive the key. Local shells use the same nam
 
 In GitHub Actions, a checksum-verified Gitleaks binary scans the source before
 the provider key is supplied. Local/server operators must scan the checkout first.
-Context includes bounded tracked text and the AGENTS.md glossary as data; it
+Context prioritizes implementation/tests and attaches only standards/*.md from
+the handbook, rather than its baseline/workflow bulk. File reads and metadata are
+bounded; omitted/truncated files and partial diffs are explicit so absence cannot
+be mistaken for a missing control. It includes the AGENTS.md glossary as data and
 excludes credential files, executable agent/config/plugin files and symlinks.
 Monthly standards review also collects current official documentation and marks
 failed retrievals explicitly. Retrieved text is never treated as instructions.
