@@ -35,9 +35,8 @@ def test_sync_is_dry_by_default_and_idempotent(baseline: tuple[Path, Path]) -> N
 
 def test_exceptions_preserve_local_changes(baseline: tuple[Path, Path]) -> None:
     source, repository = baseline
-    (repository / ".baseline-ignore").write_text(
-        "# reviewed exception\n\n.editorconfig\n"
-    )
+    exception_list = "# reviewed exception\n\n.editorconfig\n"
+    (repository / ".baseline-ignore").write_text(exception_list)
     (repository / ".editorconfig").write_text("local override")
     assert ".editorconfig" not in synchronize(source, repository, apply=True)
     assert (repository / ".editorconfig").read_text() == "local override"
