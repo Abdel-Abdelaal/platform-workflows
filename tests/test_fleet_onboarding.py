@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import yaml
 
 from tools import fleet_onboarding as fleet
 
@@ -307,3 +308,24 @@ def test_cli_default_is_read_only_and_error_is_scrubbed(
 def test_malformed_collections_are_rejected() -> None:
     with pytest.raises(TypeError):
         fleet.objects({})
+
+
+def test_controller_limits_write_credentials_to_trusted_public_targets() -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/fleet-enrollment.yml").read_text(encoding="utf-8")
+    )
+    assert document["permissions"] == {}
+    job = document["jobs"]["enroll"]
+    assert job["permissions"] == {"contents": "read"}
+    assert job["if"] == "github.ref_name == github.event.repository.default_branch"
+    steps = job["steps"]
+    app = next(step for step in steps if step.get("id") == "app")
+    assert app["with"]["repositories"] == "${{ steps.targets.outputs.repositories }}"
+    assert "steps.targets.outputs.repositories != ''" in app["if"]
+    assert "permission-administration" not in app["with"]
+    key_steps = [step for step in steps if "AI_API_KEY" in step.get("env", {})]
+    assert len(key_steps) == 1
+    assert "--apply" in key_steps[0]["run"]
+    assert key_steps[0]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token }}"
+    assert len(fleet.CALLERS) == 9
+    assert "lint.yml" in fleet.CALLERS

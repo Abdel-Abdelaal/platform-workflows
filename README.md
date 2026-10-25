@@ -175,4 +175,5 @@ labels and maintenance App setup. The Python audit includes development tooling.
 
 Future-repository enrollment has a read-only planner and a draft-PR writer that
 requires an installation token. See [setup and boundaries](docs/fleet-onboarding.md).
-The controller and App are not configured yet; discovery does not prove enrollment.
+The daily planner skips writes until the App is configured; discovery alone does
+not prove enrollment.
