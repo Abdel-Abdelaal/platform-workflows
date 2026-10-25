@@ -122,3 +122,27 @@ def test_archive_cli(
     else:
         archive.main()
         assert (finalize if command == "finalize" else upload).call_count == 1
+
+
+@pytest.mark.parametrize("payload", ["{", "[]", "{}", '{"attempts":[{}]}'])
+def test_invalid_incoming_evidence_becomes_a_signed_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, payload: str
+) -> None:
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    (incoming / "ai-record.json").write_text(payload)
+    monkeypatch.setenv("ANALYZE_RESULT", "success")
+    output = tmp_path / "record.json"
+    archive.finalize(incoming, output)
+    saved = json.loads(output.read_text())
+    assert saved["evidence_gap"] is True
+    assert saved["status"] == "no_valid_output"
+    assert saved["skip_reason"] == "invalid incoming evidence"
+
+
+def test_damaged_receipt_does_not_prevent_record_finalization(tmp_path: Path) -> None:
+    (tmp_path / "publication.json").write_text("{")
+    archive.finalize(tmp_path, tmp_path / "record.json")
+    saved = json.loads((tmp_path / "record.json").read_text())
+    assert saved["invalid_publication_receipts"] == 1
+    assert saved["publication"][0]["status"] == "not_published"

@@ -196,7 +196,9 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                         if isinstance(output, bytes)
                         else output or ""
                     )
-                ai_telemetry.record_attempt(events, time.monotonic() - started, error)
+                ai_telemetry.record_attempt(
+                    events, time.monotonic() - started, error, prompt=command[-1]
+                )
                 # Never feed failed output back as instructions or print it in CI.
                 sys.stderr.write(
                     f"Analysis attempt {attempt + 1}/3 failed "
@@ -204,7 +206,9 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 )
                 command[-1] = prompt + "\n" + SYSTEM_PROMPT
             else:
-                ai_telemetry.record_attempt(events, time.monotonic() - started, None)
+                ai_telemetry.record_attempt(
+                    events, time.monotonic() - started, None, prompt=command[-1]
+                )
                 return analysis
     raise AnalysisUnavailableError from None
 
@@ -232,13 +236,13 @@ def main() -> None:
     )
     record["configuration"]["prompt_file"] = args.prompt.name
     record["configuration"]["system_prompt_sha256"] = ai_telemetry.digest(SYSTEM_PROMPT)
-    record["context_manifest"] = (
-        json.loads(args.manifest.read_text(encoding="utf-8"))
-        if args.manifest
-        else ai_telemetry.context_manifest(context)
-    )
     token = ai_telemetry.CURRENT.set(record if args.record else None)
     try:
+        ai_telemetry.attach_manifest(record, context, args.manifest)
+        diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
+        record["configuration"].update(
+            diff_sha256=ai_telemetry.digest(diff), diff_characters=len(diff)
+        )
         key = os.environ.get("AI_API_KEY", "")
         if not key:
             record.update(status="skipped", skip_reason="AI_API_KEY missing")
@@ -247,7 +251,6 @@ def main() -> None:
             )
             return
         result = analyze(context, prompt, key, thinking=args.thinking == "enabled")
-        diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         ai_telemetry.complete(record, result, diff)
         args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     finally:

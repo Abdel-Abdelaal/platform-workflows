@@ -8,6 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel, TypeAdapter
 
 from tools.ai_contract import Analysis, valid_findings
+from tools.ai_telemetry import mapping
 from tools.github_api import github_api
 
 PAGE_SIZE = 100
@@ -66,7 +67,25 @@ def own_comment(context: ReviewContext) -> RemoteComment | None:
         page += 1
 
 
-def post_review(context: ReviewContext, analysis: Analysis) -> dict[str, object]:
+def write_receipt(receipt: dict[str, object], path: Path | None) -> None:
+    """Keep only publication join coordinates, never full API response bodies."""
+    if path is None:
+        return
+    reduced = dict(receipt)
+    for key in ("comment", "check", "issue"):
+        if key in receipt:
+            value = mapping(receipt[key])
+            reduced[key] = {
+                name: value[name]
+                for name in ("id", "number", "html_url")
+                if name in value
+            }
+    path.write_text(json.dumps(reduced), encoding="utf-8")
+
+
+def post_review(
+    context: ReviewContext, analysis: Analysis, *, receipt_path: Path | None = None
+) -> dict[str, object]:
     """Update a sticky summary and emit neutral notice annotations, never reviews."""
     findings = valid_findings(analysis, context.diff)
     details = "\n\n".join(
@@ -91,6 +110,13 @@ def post_review(context: ReviewContext, analysis: Analysis) -> dict[str, object]
             "PATCH",
             {"body": body},
         )
+    receipt: dict[str, object] = {
+        "status": "partially_published",
+        "mode": "review",
+        "comment": comment,
+        "findings_published": len(findings),
+    }
+    write_receipt(receipt, receipt_path)
     annotations = [
         {
             "path": finding.path,
@@ -116,13 +142,9 @@ def post_review(context: ReviewContext, analysis: Analysis) -> dict[str, object]
             },
         },
     )
-    return {
-        "status": "published",
-        "mode": "review",
-        "comment": comment,
-        "check": check,
-        "findings_published": len(findings),
-    }
+    receipt.update(status="published", check=check)
+    write_receipt(receipt, receipt_path)
+    return receipt
 
 
 def post_audit(repository: str, analysis: Analysis) -> dict[str, object]:
@@ -169,18 +191,9 @@ def main() -> None:
     else:
         diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         context = ReviewContext(args.repository, args.number, args.head_sha, diff)
-        receipt = post_review(context, analysis)
+        receipt = post_review(context, analysis, receipt_path=args.receipt)
     if args.receipt:
-        # Keep only join coordinates; API responses can contain unnecessary data.
-        for key in ("comment", "check", "issue"):
-            value = receipt.get(key)
-            if isinstance(value, dict):
-                receipt[key] = {
-                    name: value[name]
-                    for name in ("id", "number", "html_url")
-                    if name in value
-                }
-        args.receipt.write_text(json.dumps(receipt), encoding="utf-8")
+        write_receipt(receipt, args.receipt)
 
 
 if __name__ == "__main__":
