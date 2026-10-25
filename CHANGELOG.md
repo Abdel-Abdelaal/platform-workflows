@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.9.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.8.0...v1.9.0) (2026-10-25)
+
+
+### Features
+
+* detect codeql languages automatically and scan every dependency ecosystem ([#50](https://github.com/Abdel-Abdelaal/platform-workflows/issues/50)) ([c0c8b06](https://github.com/Abdel-Abdelaal/platform-workflows/commit/c0c8b06b49730739386f8b4fadae8962be22f7ae))
+* detect repository languages and add multi-language lint and node gates ([#49](https://github.com/Abdel-Abdelaal/platform-workflows/issues/49)) ([7b80587](https://github.com/Abdel-Abdelaal/platform-workflows/commit/7b805870e5dfb8a68efebd6f61bffe9b6f597614))
+* retain private AI records with explicit DSSE signatures ([#43](https://github.com/Abdel-Abdelaal/platform-workflows/issues/43)) ([cf3e9b2](https://github.com/Abdel-Abdelaal/platform-workflows/commit/cf3e9b24d603fd8e1fee05d4d062682281825bcb))
+* separate public and confidential AI evidence signing ([#45](https://github.com/Abdel-Abdelaal/platform-workflows/issues/45)) ([deb0003](https://github.com/Abdel-Abdelaal/platform-workflows/commit/deb000311a62d38f11fb2f6711093c4b4b1374be))
+* sign private AI evidence without public transparency ([#41](https://github.com/Abdel-Abdelaal/platform-workflows/issues/41)) ([2e40313](https://github.com/Abdel-Abdelaal/platform-workflows/commit/2e403132c2885d1bb46f0aea27789aa7c17bd85e))
+
+
+### Bug Fixes
+
+* **lint:** skip formatter and whole-workspace linters ([#51](https://github.com/Abdel-Abdelaal/platform-workflows/issues/51)) ([2185db4](https://github.com/Abdel-Abdelaal/platform-workflows/commit/2185db43cf5e6c74875ebc8e0b2bb2029f963ab7))
+* redact the provider credential before recording AI responses ([#44](https://github.com/Abdel-Abdelaal/platform-workflows/issues/44)) ([5d437ee](https://github.com/Abdel-Abdelaal/platform-workflows/commit/5d437eeae812261a7a05464ac68c71a61caa43f3))
+
 ## [1.8.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.7.0...v1.8.0) (2026-10-25)
 
 
