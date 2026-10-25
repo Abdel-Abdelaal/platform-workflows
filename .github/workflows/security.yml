@@ -3,21 +3,66 @@ on:
   workflow_call:
     inputs:
       languages:
+        description: >-
+          'auto' detects CodeQL languages from the repository (tools/languages.py);
+          a JSON list such as '["python","actions"]' overrides detection.
         type: string
-        default: '["actions"]'
+        default: auto
       dependency-warn-only-until:
         type: string
         default: '2026-10-31'
 permissions: {}
 jobs:
+  plan:
+    name: Detect languages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      codeql: ${{ steps.plan.outputs.codeql }}
+      gradle_wrapper: ${{ steps.plan.outputs.gradle_wrapper }}
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: repository
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Abdel-Abdelaal/platform-workflows
+          ref: 7b805870e5dfb8a68efebd6f61bffe9b6f597614 # reviewed tooling through PR 49
+          persist-credentials: false
+          path: platform
+          sparse-checkout: tools/languages.py
+          sparse-checkout-cone-mode: false
+      - name: Plan language checks
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REQUESTED: ${{ inputs.languages }}
+        run: |
+          python3 platform/tools/languages.py --repository "$REPOSITORY" --root repository \
+            --output "$RUNNER_TEMP/language-plan.json" \
+            --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          if [ "$REQUESTED" != auto ]; then
+            # An explicit list wins; the last value written for an output is used.
+            printf 'codeql=%s\n' "$REQUESTED" >> "$GITHUB_OUTPUT"
+            echo "CodeQL languages set explicitly by the caller: $REQUESTED" >> "$GITHUB_STEP_SUMMARY"
+          fi
   codeql:
     name: CodeQL (${{ matrix.language }})
+    needs: plan
+    if: needs.plan.outputs.codeql != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ fromJSON(inputs.languages) }}
+        language: ${{ fromJSON(needs.plan.outputs.codeql) }}
     permissions:
       contents: read
       security-events: write
@@ -70,6 +115,57 @@ jobs:
           show-openssf-scorecard: true
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, MPL-2.0, Python-2.0, Unlicense, 0BSD
           warn-only: ${{ steps.policy.outputs.warn }}
+  gradle-wrapper:
+    name: Gradle wrapper
+    needs: plan
+    if: needs.plan.outputs.gradle_wrapper == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A tampered gradle-wrapper.jar runs arbitrary code on every build.
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+  dependencies:
+    name: Dependencies (all ecosystems)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Advisory: every lockfile ecosystem (npm, Gradle, Cargo, Go, pip, ...).
+      # Blocking dependency gates stay language-specific (pip-audit, npm audit).
+      - name: OSV-Scanner
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        with:
+          scan-args: |-
+            --recursive
+            ./
+      - name: Record result
+        if: always()
+        env:
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+        run: |
+          if [ "$OSV_OUTCOME" = success ]; then
+            echo 'OSV-Scanner: no known vulnerabilities in any lockfile.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '::warning::OSV-Scanner reported findings or failed; see the step log. Advisory.'
+            echo 'OSV-Scanner: findings or error (advisory).' >> "$GITHUB_STEP_SUMMARY"
+          fi
   secrets:
     name: Secrets
     runs-on: ubuntu-latest
