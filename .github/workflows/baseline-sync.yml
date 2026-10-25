@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   sync:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.available.outputs.ready == 'true'
         with:
-          ref: main
+          ref: ${{ github.sha }}
           path: repository
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,7 +80,7 @@ jobs:
           token: ${{ steps.app.outputs.token }}
           path: repository
           branch: bot/baseline-sync
-          base: main
+          base: ${{ github.event.repository.default_branch }}
           delete-branch: true
           title: 'chore: sync baseline files'
           commit-message: 'chore: sync baseline files'

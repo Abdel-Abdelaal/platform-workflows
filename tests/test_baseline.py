@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tools.baseline import (
     FILES,
@@ -74,3 +75,25 @@ def test_cli_dry_run(
     monkeypatch.setattr(sys, "argv", ["baseline", str(source), str(repository)])
     main()
     assert not list(repository.iterdir())
+
+
+def test_baseline_writer_uses_only_the_trusted_default_branch() -> None:
+    workflow = yaml.safe_load(
+        Path(".github/workflows/baseline-sync.yml").read_text(encoding="utf-8")
+    )
+    sync = workflow["jobs"]["sync"]
+    assert "github.event.repository.default_branch" in sync["if"]
+    assert "github.event_name != 'pull_request'" in sync["if"]
+    checkout = next(
+        step
+        for step in sync["steps"]
+        if step.get("with", {}).get("path") == "repository"
+    )
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    assert checkout["with"]["persist-credentials"] is False
+    writer = next(
+        step
+        for step in sync["steps"]
+        if step.get("uses", "").startswith("peter-evans/create-pull-request@")
+    )
+    assert writer["with"]["base"] == "${{ github.event.repository.default_branch }}"
