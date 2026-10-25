@@ -1,0 +1,14 @@
+{
+  "name": "Abdel fleet enrollment",
+  "url": "https://github.com/Abdel-Abdelaal/platform-workflows",
+  "description": "Propose checked fleet enrollment PRs and provision missing AI provider secrets in public repositories.",
+  "public": false,
+  "default_events": [],
+  "default_permissions": {
+    "metadata": "read",
+    "contents": "write",
+    "pull_requests": "write",
+    "workflows": "write",
+    "secrets": "write"
+  }
+}

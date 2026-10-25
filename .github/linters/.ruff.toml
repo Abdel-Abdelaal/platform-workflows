@@ -1,0 +1,2 @@
+# Super-linter must use the same reviewed rules as the native Python gates.
+extend = "../../pyproject.toml"
