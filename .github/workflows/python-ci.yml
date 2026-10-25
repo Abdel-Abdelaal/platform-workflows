@@ -36,6 +36,29 @@ jobs:
       - run: |
           uv run ruff format --check .
           uv run ruff check --output-format=github .
+      # Each tool runs when the caller lists it as a dev dependency, so adopting
+      # one is a pyproject change in that repo, not a new workflow input.
+      - name: Architecture, dependency and dead-code checks
+        run: |
+          run_if_installed() {
+            if uv run --no-sync python -c 'import shutil, sys; sys.exit(shutil.which(sys.argv[1]) is None)' "$1"; then
+              echo "::group::$*"
+              uv run --no-sync "$@"
+              echo "::endgroup::"
+            else
+              echo "Skipped $1: not in this project's dev dependencies." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          run_if_installed lint-imports
+          run_if_installed deptry .
+          run_if_installed vulture
+      - name: Duplicated code (jscpd, at most 3%)
+        run: |
+          if [ -d src ]; then
+            npx --yes jscpd@5.4.1 --threshold 3 --min-lines 5 --reporters console src
+          else
+            echo "Skipped jscpd: no src/ directory." >> "$GITHUB_STEP_SUMMARY"
+          fi
   types:
     name: Types
     runs-on: ubuntu-latest
@@ -126,3 +149,23 @@ jobs:
       - run: |
           uv export --locked --no-hashes --no-emit-project --format requirements-txt -o requirements-audit.txt
           uvx pip-audit@2.10.1 -r requirements-audit.txt --strict --progress-spinner off
+      # Advisory second source: OSV aggregates more advisory databases than
+      # pip-audit's PyPI feed. pip-audit stays the blocking gate.
+      - name: Second advisory source (OSV-Scanner)
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        with:
+          scan-args: |-
+            --lockfile=uv.lock
+      - name: Record OSV result
+        if: always()
+        env:
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+        run: |
+          if [ "$OSV_OUTCOME" = success ]; then
+            echo "OSV-Scanner: no known vulnerabilities in uv.lock." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::OSV-Scanner reported findings or failed; see the step log. Advisory only."
+            echo "OSV-Scanner: findings or error (advisory). pip-audit remains the gate." >> "$GITHUB_STEP_SUMMARY"
+          fi
