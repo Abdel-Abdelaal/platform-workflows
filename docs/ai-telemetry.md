@@ -46,7 +46,7 @@ inferred from token counts under a subscription plan.
 
 ## Storage and verification
 
-See [ADR 0006](decisions/0006-durable-ai-telemetry.md). Each repo archives uniquely
+See [ADR 0007](decisions/0007-durable-ai-telemetry.md). Each repo archives uniquely
 named records and their Sigstore bundles as assets of a monthly
 `ai-telemetry-YYYY-MM` prerelease. These do not expire like Actions artifacts.
 They remain publicly downloadable until an authorized user explicitly deletes
