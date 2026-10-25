@@ -56,12 +56,20 @@ inferred from token counts under a subscription plan.
 
 ## Storage and verification
 
-See [ADR 0007](decisions/0007-durable-ai-telemetry.md). Each repo archives uniquely
+Public repositories use [ADR 0007](decisions/0007-durable-ai-telemetry.md).
+Each public repo archives uniquely
 named records and their Sigstore bundles as assets of a monthly
 `ai-telemetry-YYYY-MM` prerelease. These do not expire like Actions artifacts.
 They remain publicly downloadable until an authorized user explicitly deletes
 them. A signature detects modification; it does not prevent deletion or prove
 model correctness. The same evidence has a 90-day Actions artifact copy.
+
+Private repositories instead use [private DSSE signing and retention](private-ai-telemetry.md).
+Their records and identifying metadata remain in private Release assets. The
+private signing job verifies against a reviewed default-branch public key before
+archiving; it never calls the public attestation step. The public collector must
+not list or download confidential repositories. Private rollout needs provisioned
+keys and hosted proof, with paid Actions overage blocked under the free-only rule.
 
 The attestation predicate type is
 `https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-telemetry.md#record-v1`.

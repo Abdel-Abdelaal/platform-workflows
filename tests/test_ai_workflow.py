@@ -82,3 +82,56 @@ def test_ai_schedules_and_proposals_follow_the_actual_default_branch() -> None:
         if step.get("id") == "proposal"
     )
     assert proposal["with"]["base"] == "${{ github.event.repository.default_branch }}"
+
+
+def test_private_records_use_only_the_private_signer_and_default_branch_trust() -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
+    )
+    jobs = document["jobs"]
+    steps = jobs["telemetry"]["steps"]
+    attest = next(step for step in steps if step.get("id") == "attest")
+    private = next(step for step in steps if step.get("id") == "private-sign")
+    assert attest["if"] == "github.event.repository.visibility == 'public'"
+    assert private["if"] == "github.event.repository.visibility == 'private'"
+    assert "tools.ai_private_sign sign" in private["run"]
+    assert "tools.ai_private_sign verify" in private["run"]
+    assert private["run"].index(" verify ") < private["run"].index("GITHUB_OUTPUT")
+    trust = next(
+        step for step in steps if step.get("with", {}).get("path") == "signing-policy"
+    )
+    assert trust["if"] == private["if"]
+    assert trust["with"]["ref"] == "${{ github.event.repository.default_branch }}"
+    assert trust["with"]["persist-credentials"] is False
+    for name, job in jobs.items():
+        for step in job.get("steps", []):
+            if "AI_TELEMETRY_SIGNING_KEY" in step.get("env", {}):
+                assert name == "telemetry"
+                assert step.get("id") == "private-sign"
+    archive = next(
+        step for step in steps if step.get("name", "").startswith("Archive signed")
+    )
+    assert "--signature-format" in archive["run"]
+    assert (
+        archive["env"]["REPOSITORY_VISIBILITY"]
+        == "${{ github.event.repository.visibility }}"
+    )
+    assert "steps.private-sign.outputs.bundle_path" in archive["env"]["BUNDLE"]
+
+
+def test_all_reusable_ai_wrappers_pass_the_private_key_explicitly() -> None:
+    for name in (
+        "ai-audit.yml",
+        "ai-fix.yml",
+        "ai-review.yml",
+        "ai-standards-review.yml",
+    ):
+        document = yaml.load(
+            Path(".github/workflows", name).read_text(encoding="utf-8"),
+            Loader=yaml.BaseLoader,  # noqa: S506 -- only strings/containers; preserves YAML's on key
+        )
+        assert "AI_TELEMETRY_SIGNING_KEY" in document["on"]["workflow_call"]["secrets"]
+        assert (
+            document["jobs"]["ai"]["secrets"]["AI_TELEMETRY_SIGNING_KEY"]
+            == "${{ secrets.AI_TELEMETRY_SIGNING_KEY }}"
+        )

@@ -8,6 +8,8 @@ on:
     secrets:
       AI_API_KEY:
         required: false
+      AI_TELEMETRY_SIGNING_KEY:
+        required: false
       BOT_APP_ID:
         required: false
       BOT_APP_KEY:
@@ -75,7 +77,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,8 +146,8 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.8.0
-          TOOLING_COMMIT: d79b624f04332d3e4e4eb3ae015089a382cd9bee
+          PLATFORM_RELEASE: unreleased-private-telemetry
+          TOOLING_COMMIT: cf3e9b24d603fd8e1fee05d4d062682281825bcb
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
@@ -201,7 +203,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -248,7 +250,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -297,7 +299,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -362,7 +364,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -452,7 +454,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
+          ref: cf3e9b24d603fd8e1fee05d4d062682281825bcb # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -479,8 +481,8 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.8.0
-          TOOLING_COMMIT: d79b624f04332d3e4e4eb3ae015089a382cd9bee
+          PLATFORM_RELEASE: unreleased-private-telemetry
+          TOOLING_COMMIT: cf3e9b24d603fd8e1fee05d4d062682281825bcb
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
         run: uv run --locked --no-dev python -m tools.ai_telemetry_archive finalize --directory "$GITHUB_WORKSPACE/evidence" --record "$RUNNER_TEMP/ai-record.json"
@@ -494,26 +496,48 @@ jobs:
           "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/ai-evidence-scan" --redact --no-banner --exit-code 1
       - name: Attest complete record
         id: attest
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/ai-record.json
           predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-telemetry.md#record-v1
           predicate-path: ${{ runner.temp }}/predicate.json
           create-storage-record: false
+      - name: Read the private repository's reviewed signing trust anchor
+        if: github.event.repository.visibility == 'private'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: signing-policy
+          persist-credentials: false
+          sparse-checkout: .github/ai-telemetry-public.pem
+          sparse-checkout-cone-mode: false
+      - name: Sign private evidence and verify its reviewed trust anchor
+        id: private-sign
+        if: github.event.repository.visibility == 'private'
+        working-directory: platform
+        env:
+          AI_TELEMETRY_SIGNING_KEY: ${{ secrets.AI_TELEMETRY_SIGNING_KEY }}
+        run: |
+          uv run --locked --no-dev python -m tools.ai_private_sign sign --record "$RUNNER_TEMP/ai-record.json" --bundle "$RUNNER_TEMP/ai-record.dsse.json"
+          uv run --locked --no-dev python -m tools.ai_private_sign verify --record "$RUNNER_TEMP/ai-record.json" --bundle "$RUNNER_TEMP/ai-record.dsse.json" --public-key "$GITHUB_WORKSPACE/signing-policy/.github/ai-telemetry-public.pem"
+          echo "bundle_path=$RUNNER_TEMP/ai-record.dsse.json" >> "$GITHUB_OUTPUT"
       - name: Archive signed record durably in this repository
         working-directory: platform
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: ${{ inputs.mode }}
-          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
-        run: uv run --locked --no-dev python -m tools.ai_telemetry_archive archive --record "$RUNNER_TEMP/ai-record.json" --bundle "$BUNDLE" --directory "$RUNNER_TEMP/signed-ai-records"
+          BUNDLE: ${{ steps.attest.outputs.bundle-path || steps.private-sign.outputs.bundle_path }}
+          SIGNATURE_FORMAT: ${{ github.event.repository.visibility == 'private' && 'dsse' || 'sigstore' }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        run: uv run --locked --no-dev python -m tools.ai_telemetry_archive archive --record "$RUNNER_TEMP/ai-record.json" --bundle "$BUNDLE" --signature-format "$SIGNATURE_FORMAT" --directory "$RUNNER_TEMP/signed-ai-records"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && steps.attest.outcome == 'success'
+        if: always() && (steps.attest.outcome == 'success' || steps.private-sign.outcome == 'success')
         with:
           name: ai-telemetry-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/ai-record.json
-            ${{ steps.attest.outputs.bundle-path }}
+            ${{ steps.attest.outputs.bundle-path || steps.private-sign.outputs.bundle_path }}
           retention-days: 90
 
   report:

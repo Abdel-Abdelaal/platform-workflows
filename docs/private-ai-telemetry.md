@@ -44,8 +44,11 @@ private native attestations as requiring Enterprise; no upgrade is authorized.
 
 ## Rollout status
 
-The signer and private archive naming are implemented and tested locally with
-real cryptographic operations. Workflow separation, repository key provisioning,
-hosted verification, private caller onboarding and anonymous aggregate export
-are subsequent steps. Do not describe these as active until hosted runs prove them.
+The signer, private archive naming and separate workflow branches are implemented
+and tested locally. Only explicitly public workflows use the public Sigstore path;
+private jobs use DSSE and verify their reviewed default-branch public key before
+upload. Repository key provisioning, hosted verification, private caller onboarding
+and anonymous aggregate export are subsequent rollout steps. Do not describe these
+as active until hosted runs prove them. Confirm paid Actions overage is blocked
+before enabling private CI under the owner's free-only constraint.
 D1 is available on the owner's Free plan but has not been accessed or modified.
