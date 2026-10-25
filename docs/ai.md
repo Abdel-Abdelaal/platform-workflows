@@ -12,7 +12,8 @@ a non-secret variable, defaulting to `https://token-plan-ams.xiaomimimo.com/v1`.
 No key is stored in source, prompts or artifacts. Missing keys skip with a notice;
 fork PRs and Dependabot PRs never receive the key. Local shells use the same names.
 
-Before the model runs, a checksum-verified Gitleaks binary scans the source.
+In GitHub Actions, a checksum-verified Gitleaks binary scans the source before
+the provider key is supplied. Local/server operators must scan the checkout first.
 Context includes bounded tracked text and the AGENTS.md glossary as data; it
 excludes credential files, executable agent/config/plugin files and symlinks.
 Monthly standards review also collects current official documentation and marks
@@ -22,7 +23,15 @@ OpenCode starts in a clean temporary directory with `--pure`, isolated config/da
 paths, project configuration and external skills disabled, and **every tool denied**.
 The model process receives its provider key and necessary OS variables, with no
 GitHub or App credential. Pydantic validates and bounds the returned JSON.
-These boundaries reduce prompt-injection impact; they do not prove AI correctness.
+Context is delimited stdin data, with explicit EOF. It stays outside the command
+line and does not consume an internal file-attachment read step. OpenCode1.18.35
+reads noninteractive stdin before starting; inheriting an open stdin can hang.
+A real child-process regression checks that large context reaches EOF. At most
+three attempts run, each bounded to ten minutes for whole-repository audits. The32768-token completion budget includes reasoning as well as
+JSON output: the previous8192-token cap was exhausted entirely by reasoning in
+a real audit, with no final text. Output objects retain their smaller schema limits.
+Logs expose only exception categories, never raw provider
+output. These boundaries reduce prompt-injection impact; they do not prove AI correctness.
 
 The tooling and reusable workflows are implemented and tested. Fleet activation
 is tracked by consumer PRs; a configured file is not evidence of a successful run.
@@ -71,11 +80,13 @@ It does not merge. Missing App setup cannot silently fall back to a personal tok
 From this repository, with Node 18+ and Python 3.12/uv installed:
 
 ```sh
+set -e
 uv sync --locked
 npm ci
 export PATH="$PWD/node_modules/.bin:$PATH"
 export AI_BASE_URL=https://token-plan-ams.xiaomimimo.com/v1
 # Set AI_API_KEY through your shell or secret manager, never a committed file.
+gitleaks git /absolute/path/to/repo --redact --exit-code 1
 uv run python -m tools.ai_context --repository /absolute/path/to/repo --output /tmp/context.md
 uv run python -m tools.ai_runner --context /tmp/context.md --prompt prompts/audit.md --output /tmp/analysis.json
 ```
