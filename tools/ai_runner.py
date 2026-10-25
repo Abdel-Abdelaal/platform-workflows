@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from tools import ai_telemetry
 from tools.ai_contract import Analysis, extract_text, parse_analysis
+from tools.ai_redaction import redact_events
 
 MODEL = "mimo/mimo-v2.6-flash"
 BASE_URL = "https://token-plan-ams.xiaomimimo.com/v1"
@@ -177,7 +178,7 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                     encoding="utf-8",
                     timeout=600,
                 )
-                events = result.stdout
+                events = redact_events(result.stdout, key)
                 analysis = parse_analysis(extract_text(events))
             except (
                 ValidationError,
@@ -196,6 +197,7 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                         if isinstance(output, bytes)
                         else output or ""
                     )
+                events = redact_events(events, key)
                 ai_telemetry.record_attempt(
                     events, time.monotonic() - started, error, prompt=command[-1]
                 )
