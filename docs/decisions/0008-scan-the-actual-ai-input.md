@@ -12,6 +12,12 @@ A synthetic canary on an unrelated red-team branch consequently blocked a clean
 production checkout. That scan also preceded health-report and current-reference
 retrieval, so those appended inputs were outside its protection.
 
+## Considered options
+
+- Keep only the early full-history scan: misses subsequently appended input.
+- Add a canary allowlist: creates an unnecessary exception at the provider boundary.
+- Scan prepared input here and retain history scanning in the security workflow.
+
 ## Decision outcome
 
 Scan the complete prepared input with the existing checksum-verified Gitleaks

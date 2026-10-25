@@ -48,6 +48,12 @@ def test_all_prepared_inputs_are_scanned_before_the_provider_key_is_used() -> No
     invoked = names.index("Analyze with tool-denied Flash model")
     assert prepared < scanned < invoked
     scan = steps[scanned]
+    assert scan["if"] == steps[invoked]["if"]
+    assert 'touch "$RUNNER_TEMP/pr.diff"' in steps[prepared]["run"]
+    validated = next(
+        step for step in steps if step.get("name") == "Validate analysis mode"
+    )
+    assert "review|audit|fix|standards" in validated["run"]
     assert "always()" not in steps[invoked]["if"]
     assert "AI_API_KEY" not in scan.get("env", {})
     for path in ("context.md", "pr.diff", "prompt.md"):
