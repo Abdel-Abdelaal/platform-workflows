@@ -30,7 +30,7 @@ permissions: {}
 
 jobs:
   pr-title:
-    uses: Abdel-Abdelaal/platform-workflows/.github/workflows/pr-title.yml@40e5261e2e39d8d0c88e709c26385cab3cc43466 # v1.7.0
+    uses: Abdel-Abdelaal/platform-workflows/.github/workflows/pr-title.yml@40e5261e2e39d8d0c88e709c26385cab3cc43466 # v1.8.0
     permissions:
       pull-requests: read
 ```
