@@ -75,7 +75,7 @@ def runner_config() -> dict[str, object]:
                 "models": {
                     "mimo-v2.6-flash": {
                         "name": "MiMo 2.6 Flash",
-                        "limit": {"context": 1048576, "output": 8192},
+                        "limit": {"context": 1048576, "output": 32768},
                     }
                 },
             }
