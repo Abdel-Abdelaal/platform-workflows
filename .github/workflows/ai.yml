@@ -20,7 +20,7 @@ jobs:
   analyze:
     name: Isolated analysis
     if: >-
-      (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+      (github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       (inputs.mode == 'review' && github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.id != 49699333)
@@ -64,14 +64,13 @@ jobs:
           path: repository
           fetch-depth: 0
           persist-credentials: false
-      - name: Scan source before supplying provider credentials
+      - name: Install checksum-verified secret scanner
         if: steps.available.outputs.ready == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/gitleaks"
           curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz --output "$RUNNER_TEMP/gitleaks.tar.gz"
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/gitleaks.tar.gz" --directory "$RUNNER_TEMP/gitleaks"
-          "$RUNNER_TEMP/gitleaks/gitleaks" git "$GITHUB_WORKSPACE/repository" --redact --no-banner --exit-code 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.available.outputs.ready == 'true'
         with:
@@ -86,9 +85,6 @@ jobs:
           ref: main # protected handbook data; never executed
           path: handbook
           persist-credentials: false
-      - name: Scan handbook data before supplying provider credentials
-        if: steps.available.outputs.ready == 'true'
-        run: '"$RUNNER_TEMP/gitleaks/gitleaks" git "$GITHUB_WORKSPACE/handbook" --redact --no-banner --exit-code 1'
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         if: steps.available.outputs.ready == 'true'
         with:
@@ -127,6 +123,18 @@ jobs:
           if [ "$MODE" = standards ]; then
             uv run --locked --no-dev python -m tools.standards_context --output "$RUNNER_TEMP/context.md"
           fi
+      - name: Scan the complete prepared model input
+        id: input-scan
+        if: steps.available.outputs.ready == 'true'
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/model-input"
+          cp "$RUNNER_TEMP/context.md" "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/model-input/"
+          prompt="$MODE"
+          if [ "$MODE" = standards ]; then prompt=standards-review; fi
+          cp "$GITHUB_WORKSPACE/platform/prompts/$prompt.md" "$RUNNER_TEMP/model-input/prompt.md"
+          "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/model-input" --redact --no-banner --exit-code 1
       - name: Analyze with tool-denied Flash model
         if: steps.available.outputs.ready == 'true'
         working-directory: platform
@@ -391,7 +399,7 @@ jobs:
           token: ${{ steps.app.outputs.token }}
           path: repository
           branch: ${{ inputs.mode == 'standards' && 'bot/ai-standards' || 'bot/ai-fix' }}
-          base: main
+          base: ${{ github.event.repository.default_branch }}
           draft: true
           delete-branch: true
           title: >-
@@ -426,7 +434,7 @@ jobs:
     needs: [analyze, publish-review, publish-audit, validate-fix, propose-fix]
     if: >-
       always() && !cancelled() &&
-      ((github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+      ((github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
        (github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.id != 49699333))
