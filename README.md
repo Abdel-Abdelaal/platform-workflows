@@ -172,3 +172,7 @@ visible in the public observatory rather than inferred from configuration. Froze
 run where a hook configuration is supported; native Dependabot maintains baseline
 hook revisions. Stale/release mutations remain explicitly gated on canonical
 labels and maintenance App setup. The Python audit includes development tooling.
+
+Future-repository enrollment has a read-only planner and a draft-PR writer that
+requires an installation token. See [setup and boundaries](docs/fleet-onboarding.md).
+The controller and App are not configured yet; discovery does not prove enrollment.
