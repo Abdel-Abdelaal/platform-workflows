@@ -1,0 +1,96 @@
+name: App-authored release proposals
+on:
+  workflow_call:
+    secrets:
+      BOT_APP_ID:
+        required: false
+      BOT_APP_KEY:
+        required: false
+permissions: {}
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  release:
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
+      (github.repository == 'Abdel-Abdelaal/platform-workflows' ||
+       github.repository == 'Abdel-Abdelaal/shortlink')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - name: Check automation App setup
+        id: setup
+        env:
+          BOT_ID: ${{ secrets.BOT_APP_ID }}
+          BOT_KEY: ${{ secrets.BOT_APP_KEY }}
+        run: |
+          ready=false
+          if [ -n "$BOT_ID" ] && [ -n "$BOT_KEY" ]; then ready=true; fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          if [ "$ready" = false ]; then
+            echo 'Release automation skipped: maintenance App credentials are not configured.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Check governance-owned release labels
+        if: steps.setup.outputs.ready == 'true'
+        id: labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/labels?per_page=100" --paginate --jq '.[].name' > "$RUNNER_TEMP/labels.txt"
+          ready=true
+          for label in 'autorelease: pending' 'autorelease: tagged'; do
+            if ! grep --fixed-strings --line-regexp --quiet "$label" "$RUNNER_TEMP/labels.txt"; then ready=false; fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          if [ "$ready" = false ]; then
+            echo 'Release automation skipped: governance has not applied its canonical release labels.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        if: steps.labels.outputs.ready == 'true'
+        id: app
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_KEY }}
+          owner: Abdel-Abdelaal
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        if: steps.labels.outputs.ready == 'true'
+        id: release
+        with:
+          token: ${{ steps.app.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Move the platform discovery tag after a stable major-one release
+        if: >-
+          github.repository == 'Abdel-Abdelaal/platform-workflows' &&
+          steps.release.outputs.release_created == 'true' &&
+          startsWith(steps.release.outputs.tag_name, 'v1.') &&
+          !contains(steps.release.outputs.tag_name, '-')
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$RELEASE_TAG" =~ ^v1\.[0-9]+\.[0-9]+$ ]]
+          gh api --method PATCH "repos/$GH_REPO/git/refs/tags/v1" -f "sha=$RELEASE_SHA" -F force=true
+  report:
+    needs: release
+    if: failure()
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Release automation failed

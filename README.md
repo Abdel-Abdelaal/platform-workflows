@@ -115,3 +115,22 @@ contents, pull-requests and workflows write permissions. No baseline job can mer
 AI workflows use the same reviewed tooling commit, including bounded JSON retries
 and sanitized failure handling. Consumers must upgrade their pinned workflow SHA
 to obtain these changes; a moving tag does not change an existing pinned caller.
+
+## Maintenance activation
+
+The new shared release carries the corrected JSON prompts, explicit stdin EOF,
+reasoning-aware completion/time budgets and code-first bounded context. Provider
+analysis installs only locked Python runtime dependencies; hook/test tooling runs
+without provider or App credentials. The Python audit covers development tools as
+well as runtime packages, so the full toolchain cannot hide behind a clean service
+runtime export.
+
+`hooks.yml` validates frozen hooks; native Dependabot updates the central baseline.
+`stale.yml` supports dry-run and refuses mutations until the canonical label exists.
+`release.yml` uses the maintenance App only after setup/label checks, creates normal
+release proposals and moves the platform discovery tag after stable major-one
+releases. It has no personal-token fallback. Missing App setup skips explicitly.
+
+Release-please's pinned engine17.6.0 needs `.name.value` in the uv.lock TOML selector;
+that selector was tested against real lock data and changes only the root package.
+App-based release creation still needs owner setup and a live integration run.

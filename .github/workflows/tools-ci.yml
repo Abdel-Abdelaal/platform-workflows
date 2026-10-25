@@ -12,8 +12,13 @@ jobs:
     uses: ./.github/workflows/python-ci.yml
     permissions:
       contents: read
+  hooks:
+    uses: ./.github/workflows/hooks.yml
+    permissions:
+      contents: read
+      issues: write
   report:
-    needs: ci
+    needs: [ci, hooks]
     if: failure() && github.event_name == 'schedule'
     uses: ./.github/workflows/report-failure.yml
     permissions:
