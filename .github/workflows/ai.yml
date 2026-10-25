@@ -75,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,8 +144,8 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.7.0
-          TOOLING_COMMIT: a07b3774a5d3f90b15a2dc147077d0f0f71a509f
+          PLATFORM_RELEASE: v1.8.0
+          TOOLING_COMMIT: d79b624f04332d3e4e4eb3ae015089a382cd9bee
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
@@ -201,7 +201,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -248,7 +248,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -297,7 +297,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -362,7 +362,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -452,7 +452,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: a07b3774a5d3f90b15a2dc147077d0f0f71a509f # reviewed telemetry tooling
+          ref: d79b624f04332d3e4e4eb3ae015089a382cd9bee # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -479,8 +479,8 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.7.0
-          TOOLING_COMMIT: a07b3774a5d3f90b15a2dc147077d0f0f71a509f
+          PLATFORM_RELEASE: v1.8.0
+          TOOLING_COMMIT: d79b624f04332d3e4e4eb3ae015089a382cd9bee
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
         run: uv run --locked --no-dev python -m tools.ai_telemetry_archive finalize --directory "$GITHUB_WORKSPACE/evidence" --record "$RUNNER_TEMP/ai-record.json"
