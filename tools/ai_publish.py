@@ -1,6 +1,7 @@
 """Publish advisory model findings through trusted, separate GitHub operations."""
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,7 +66,7 @@ def own_comment(context: ReviewContext) -> RemoteComment | None:
         page += 1
 
 
-def post_review(context: ReviewContext, analysis: Analysis) -> None:
+def post_review(context: ReviewContext, analysis: Analysis) -> dict[str, object]:
     """Update a sticky summary and emit neutral notice annotations, never reviews."""
     findings = valid_findings(analysis, context.diff)
     details = "\n\n".join(
@@ -79,13 +80,13 @@ def post_review(context: ReviewContext, analysis: Analysis) -> None:
     )
     existing = own_comment(context)
     if existing is None:
-        github_api(
+        comment = github_api(
             f"repos/{context.repository}/issues/{context.number}/comments",
             "POST",
             {"body": body},
         )
     else:
-        github_api(
+        comment = github_api(
             f"repos/{context.repository}/issues/comments/{existing.id}",
             "PATCH",
             {"body": body},
@@ -100,7 +101,7 @@ def post_review(context: ReviewContext, analysis: Analysis) -> None:
         }
         for finding in findings
     ]
-    github_api(
+    check = github_api(
         f"repos/{context.repository}/check-runs",
         "POST",
         {
@@ -115,9 +116,16 @@ def post_review(context: ReviewContext, analysis: Analysis) -> None:
             },
         },
     )
+    return {
+        "status": "published",
+        "mode": "review",
+        "comment": comment,
+        "check": check,
+        "findings_published": len(findings),
+    }
 
 
-def post_audit(repository: str, analysis: Analysis) -> None:
+def post_audit(repository: str, analysis: Analysis) -> dict[str, object]:
     """Create or update one issue without repeatedly notifying through comments."""
     title = "Weekly health report"
     issues = TypeAdapter(list[RemoteIssue]).validate_python(
@@ -138,9 +146,10 @@ def post_audit(repository: str, analysis: Analysis) -> None:
     }
     endpoint = f"repos/{repository}/issues"
     if existing is not None:
-        github_api(f"{endpoint}/{existing.number}", "PATCH", body)
+        issue = github_api(f"{endpoint}/{existing.number}", "PATCH", body)
     else:
-        github_api(endpoint, "POST", body)
+        issue = github_api(endpoint, "POST", body)
+    return {"status": "published", "mode": "audit", "issue": issue}
 
 
 def main() -> None:
@@ -152,14 +161,26 @@ def main() -> None:
     parser.add_argument("--number", type=int, default=0)
     parser.add_argument("--head-sha", default="")
     parser.add_argument("--diff", type=Path)
+    parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
     analysis = Analysis.model_validate_json(args.analysis.read_text(encoding="utf-8"))
     if args.mode == "audit":
-        post_audit(args.repository, analysis)
+        receipt = post_audit(args.repository, analysis)
     else:
         diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         context = ReviewContext(args.repository, args.number, args.head_sha, diff)
-        post_review(context, analysis)
+        receipt = post_review(context, analysis)
+    if args.receipt:
+        # Keep only join coordinates; API responses can contain unnecessary data.
+        for key in ("comment", "check", "issue"):
+            value = receipt.get(key)
+            if isinstance(value, dict):
+                receipt[key] = {
+                    name: value[name]
+                    for name in ("id", "number", "html_url")
+                    if name in value
+                }
+        args.receipt.write_text(json.dumps(receipt), encoding="utf-8")
 
 
 if __name__ == "__main__":

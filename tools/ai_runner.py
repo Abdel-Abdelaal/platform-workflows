@@ -7,10 +7,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from pydantic import ValidationError
 
+from tools import ai_telemetry
 from tools.ai_contract import Analysis, extract_text, parse_analysis
 
 MODEL = "mimo/mimo-v2.6-flash"
@@ -161,6 +163,8 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
         data = "\n--- BEGIN UNTRUSTED REPOSITORY DATA ---\n" + context
         data += "\n--- END UNTRUSTED REPOSITORY DATA ---\n"
         for attempt in range(3):
+            started = time.monotonic()
+            events = ""
             try:
                 result = subprocess.run(
                     command,
@@ -173,7 +177,8 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                     encoding="utf-8",
                     timeout=600,
                 )
-                return parse_analysis(extract_text(result.stdout))
+                events = result.stdout
+                analysis = parse_analysis(extract_text(events))
             except (
                 ValidationError,
                 ValueError,
@@ -182,12 +187,25 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 subprocess.CalledProcessError,
                 subprocess.TimeoutExpired,
             ) as error:
+                if isinstance(
+                    error, (subprocess.CalledProcessError, subprocess.TimeoutExpired)
+                ):
+                    output = error.stdout
+                    events = (
+                        output.decode("utf-8", errors="replace")
+                        if isinstance(output, bytes)
+                        else output or ""
+                    )
+                ai_telemetry.record_attempt(events, time.monotonic() - started, error)
                 # Never feed failed output back as instructions or print it in CI.
                 sys.stderr.write(
                     f"Analysis attempt {attempt + 1}/3 failed "
                     f"({type(error).__name__}); provider output withheld.\n"
                 )
                 command[-1] = prompt + "\n" + SYSTEM_PROMPT
+            else:
+                ai_telemetry.record_attempt(events, time.monotonic() - started, None)
+                return analysis
     raise AnalysisUnavailableError from None
 
 
@@ -197,6 +215,9 @@ def main() -> None:
     parser.add_argument("--context", type=Path, required=True)
     parser.add_argument("--prompt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--record", type=Path)
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--diff", type=Path)
     parser.add_argument(
         "--thinking",
         choices=["enabled", "disabled"],
@@ -204,17 +225,35 @@ def main() -> None:
         help="disable for whole-repository context so the budget reaches the JSON",
     )
     args = parser.parse_args()
-    key = os.environ.get("AI_API_KEY", "")
-    if not key:
-        args.output.write_text('{"skipped": "AI_API_KEY missing"}', encoding="utf-8")
-        return
-    result = analyze(
-        args.context.read_text(encoding="utf-8"),
-        args.prompt.read_text(encoding="utf-8"),
-        key,
-        thinking=args.thinking == "enabled",
+    context = args.context.read_text(encoding="utf-8")
+    prompt = args.prompt.read_text(encoding="utf-8")
+    record = ai_telemetry.new_record(
+        context, prompt, thinking=args.thinking == "enabled"
     )
-    args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+    record["configuration"]["prompt_file"] = args.prompt.name
+    record["configuration"]["system_prompt_sha256"] = ai_telemetry.digest(SYSTEM_PROMPT)
+    record["context_manifest"] = (
+        json.loads(args.manifest.read_text(encoding="utf-8"))
+        if args.manifest
+        else ai_telemetry.context_manifest(context)
+    )
+    token = ai_telemetry.CURRENT.set(record if args.record else None)
+    try:
+        key = os.environ.get("AI_API_KEY", "")
+        if not key:
+            record.update(status="skipped", skip_reason="AI_API_KEY missing")
+            args.output.write_text(
+                '{"skipped": "AI_API_KEY missing"}', encoding="utf-8"
+            )
+            return
+        result = analyze(context, prompt, key, thinking=args.thinking == "enabled")
+        diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
+        ai_telemetry.complete(record, result, diff)
+        args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+    finally:
+        ai_telemetry.CURRENT.reset(token)
+        if args.record:
+            ai_telemetry.save(record, args.record)
 
 
 if __name__ == "__main__":
