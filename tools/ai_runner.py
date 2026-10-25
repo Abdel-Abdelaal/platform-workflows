@@ -55,7 +55,25 @@ SYSTEM_PROMPT = (
 )
 
 
-def runner_config() -> dict[str, object]:
+def model_options(*, thinking: bool) -> dict[str, object]:
+    """Request options for Flash, passed through to the request body.
+
+    Measured against the Token Plan endpoint: `thinking: {"type": "disabled"}`
+    drops reasoning tokens to zero, while `reasoning_effort` and
+    `enable_thinking` are ignored. Whole-repository context otherwise spends the
+    entire completion budget on reasoning and returns no JSON. With thinking off,
+    `json_object` mode removes malformed-JSON failures; strict `json_schema` mode
+    is not served by this endpoint.
+    """
+    if thinking:
+        return {}
+    return {
+        "thinking": {"type": "disabled"},
+        "response_format": {"type": "json_object"},
+    }
+
+
+def runner_config(*, thinking: bool = True) -> dict[str, object]:
     """Fix both primary and small models to the owner's selected Flash model."""
     return {
         "$schema": "https://opencode.ai/config.json",
@@ -76,6 +94,7 @@ def runner_config() -> dict[str, object]:
                     "mimo-v2.6-flash": {
                         "name": "MiMo 2.6 Flash",
                         "limit": {"context": 1048576, "output": 32768},
+                        "options": model_options(thinking=thinking),
                     }
                 },
             }
@@ -94,7 +113,9 @@ def runner_config() -> dict[str, object]:
     }
 
 
-def isolated_environment(workspace: Path, key: str) -> dict[str, str]:
+def isolated_environment(
+    workspace: Path, key: str, *, thinking: bool = True
+) -> dict[str, str]:
     """Pass OS plumbing and only the AI key, excluding GitHub and App credentials."""
     environment = {
         name: value
@@ -104,7 +125,7 @@ def isolated_environment(workspace: Path, key: str) -> dict[str, str]:
     environment.update(
         {
             "AI_API_KEY": key,
-            "OPENCODE_CONFIG_CONTENT": json.dumps(runner_config()),
+            "OPENCODE_CONFIG_CONTENT": json.dumps(runner_config(thinking=thinking)),
             "XDG_CONFIG_HOME": str(workspace / "config"),
             "XDG_DATA_HOME": str(workspace / "data"),
             "XDG_CACHE_HOME": str(workspace / "cache"),
@@ -119,7 +140,7 @@ def isolated_environment(workspace: Path, key: str) -> dict[str, str]:
     return environment
 
 
-def analyze(context: str, prompt: str, key: str) -> Analysis:
+def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> Analysis:
     """Return validated analysis without executing project config or model tools."""
     executable = shutil.which("opencode")
     if executable is None:
@@ -144,7 +165,7 @@ def analyze(context: str, prompt: str, key: str) -> Analysis:
                 result = subprocess.run(
                     command,
                     cwd=workspace,
-                    env=isolated_environment(workspace, key),
+                    env=isolated_environment(workspace, key, thinking=thinking),
                     check=True,
                     capture_output=True,
                     input=data,
@@ -176,6 +197,12 @@ def main() -> None:
     parser.add_argument("--context", type=Path, required=True)
     parser.add_argument("--prompt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--thinking",
+        choices=["enabled", "disabled"],
+        default="enabled",
+        help="disable for whole-repository context so the budget reaches the JSON",
+    )
     args = parser.parse_args()
     key = os.environ.get("AI_API_KEY", "")
     if not key:
@@ -185,6 +212,7 @@ def main() -> None:
         args.context.read_text(encoding="utf-8"),
         args.prompt.read_text(encoding="utf-8"),
         key,
+        thinking=args.thinking == "enabled",
     )
     args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
 

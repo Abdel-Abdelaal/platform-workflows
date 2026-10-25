@@ -30,9 +30,24 @@ Context is delimited stdin data, with explicit EOF. It stays outside the command
 line and does not consume an internal file-attachment read step. OpenCode1.18.35
 reads noninteractive stdin before starting; inheriting an open stdin can hang.
 A real child-process regression checks that large context reaches EOF. At most
-three attempts run, each bounded to ten minutes for whole-repository audits. The32768-token completion budget includes reasoning as well as
-JSON output: the previous8192-token cap was exhausted entirely by reasoning in
-a real audit, with no final text. Output objects retain their smaller schema limits.
+three attempts run, each bounded to ten minutes for whole-repository audits. The
+32768-token completion budget includes reasoning as well as JSON output. With the
+whole repository plus handbook (~155k characters), Flash spent all 32k tokens on
+reasoning and returned no text, so audits failed with `json_invalid`.
+
+**Reasoning switch.** Measured against the Token Plan endpoint on 2026-10-25:
+`thinking: {"type": "disabled"}` drops reasoning tokens to 0, while
+`reasoning_effort` and `enable_thinking` are ignored. `response_format: json_object`
+is served; strict `json_schema` is not. Whole-repository modes (audit, fix,
+standards) run with reasoning disabled and JSON mode on (`--thinking disabled`);
+diff review keeps reasoning, which it can afford. In four full-context
+reproductions without reasoning, three produced validated output within the three
+attempts. The remaining schema failures were invented comment fields and too many
+comments; those prompts now require an empty `comments` array, since only the
+summary is published. **Trade-off:** without reasoning, Flash is shallower (it
+missed a simple primality check that it gets right with reasoning), so audit
+findings need human verification. They are advisory anyway.
+Output objects retain their smaller schema limits.
 Logs expose only exception categories, never raw provider
 output. These boundaries reduce prompt-injection impact; they do not prove AI correctness.
 

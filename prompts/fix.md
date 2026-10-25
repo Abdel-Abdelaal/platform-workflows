@@ -5,6 +5,7 @@ well-supported finding that can be safely fixed with accompanying tests. Avoid
 speculative refactoring, unrelated cleanups or new dependencies.
 
 Return only JSON: {"summary":"Markdown analysis with evidence.","comments":[],"patch":""}.
+Keep "comments" an empty array in this mode; every finding belongs in "summary".
 At most 5 files and 400 diff lines. Allowed paths: src/*.py, tests/*.py (including
 subdirectories), docs/*.md, standards/*.md, README.md. Never alter workflows,
 configuration, agent instructions, credentials, symlinks or executable file modes.
