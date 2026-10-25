@@ -18,5 +18,7 @@ def github_api(
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        timeout=60,
     )
     return json.loads(result.stdout) if result.stdout.strip() else None
