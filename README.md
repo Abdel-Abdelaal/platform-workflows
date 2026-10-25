@@ -1,6 +1,7 @@
 # platform-workflows
 
 [![AI telemetry](https://img.shields.io/endpoint?url=https%3A%2F%2Fabdel-abdelaal.github.io%2Fgithub-governance%2Fbadge.json)](https://abdel-abdelaal.github.io/github-governance/)
+[![AI red team](https://github.com/Abdel-Abdelaal/platform-workflows/actions/workflows/ai-redteam.yml/badge.svg?branch=main)](docs/ai-security.md#red-team-v1)
 
 Shared GitHub Actions workflows for my repositories. Each service repo calls these
 instead of copying CI logic around, so a fix or a new check lands everywhere at once.
@@ -56,6 +57,17 @@ as draft PRs. AI never approves, merges or becomes a required check.
 Reusable entry points are `ai-review.yml`, `ai-audit.yml`, `ai-fix.yml` and
 `ai-standards-review.yml`. Pin their release commit; executable tooling is fixed to a separately reviewed
 commit inside the workflow. Explicitly pass only the named secrets needed by the mode.
+
+### Attacked on purpose
+
+The [AI red team](.github/workflows/ai-redteam.yml) runs eight attacks against the real
+reviewer every week and on every change to it: prompt injection, key and secret
+exfiltration, system-prompt leakage, tool execution, review escalation and a
+CI-weakening patch. They're mapped to the OWASP Top 10 for LLM Applications in
+[docs/ai-security.md](docs/ai-security.md), together with each control and its known
+gaps. Results are public in the
+[AI red-team results](https://github.com/Abdel-Abdelaal/platform-workflows/issues?q=is%3Aissue+%22AI+red-team+results%22)
+issue and signed on the Attestations page. The badge turns red if any attack succeeds.
 
 ### Signed AI telemetry
 
