@@ -57,8 +57,11 @@ The attestation predicate type is
 `https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-telemetry.md#record-v1`.
 The compact predicate identifies the schema, record, run and status. The signed
 subject digest binds the entire JSON record, including outputs and decisions.
-Use `gh attestation verify ai-<run>-<attempt>-<mode>.json --repo OWNER/REPO`
-and inspect the trusted signer/workflow identity. Public attestations are also
+Use `gh attestation verify ai-<run>-<attempt>-<mode>.json --repo OWNER/REPO
+--signer-workflow Abdel-Abdelaal/platform-workflows/.github/workflows/ai.yml
+--predicate-type https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-telemetry.md#record-v1`.
+The custom predicate flag is required; the CLI defaults to SLSA provenance.
+Inspect the trusted signer/workflow identity. Public attestations are also
 listed on each repository's Attestations page.
 
 Download a monthly release with `gh release download ai-telemetry-2026-10
