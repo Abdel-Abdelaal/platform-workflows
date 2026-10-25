@@ -15,8 +15,9 @@ rotation. The private key belongs in `AI_TELEMETRY_SIGNING_KEY`, never source.
 
 The trusted signing job alone receives that secret. It must verify its generated
 bundle against the independently reviewed `.github/ai-telemetry-public.pem` on the
-private repository's default-branch commit before archiving (the PR base SHA or
-the guarded main run SHA, never the PR head). A mismatched or missing key
+private repository's default-branch commit before archiving. The trusted job
+resolves that branch to an immutable commit and reads only the public-key blob
+through the GitHub API, never checking out or executing private source. A mismatched or missing key
 fails closed. No source code or proposed patch executes in the signing job.
 
 Operators verify a downloaded private record against a separately trusted key:

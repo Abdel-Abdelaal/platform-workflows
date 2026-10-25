@@ -98,14 +98,16 @@ def test_private_records_use_only_the_private_signer_and_default_branch_trust() 
     assert "tools.ai_private_sign verify" in private["run"]
     assert private["run"].index(" verify ") < private["run"].index("GITHUB_OUTPUT")
     trust = next(
-        step for step in steps if step.get("with", {}).get("path") == "signing-policy"
+        step
+        for step in steps
+        if step.get("name", "").startswith("Read the private repository")
     )
     assert trust["if"] == private["if"]
-    assert (
-        trust["with"]["ref"]
-        == "${{ github.event.pull_request.base.sha || github.sha }}"
-    )
-    assert trust["with"]["persist-credentials"] is False
+    assert 'metadata["default_branch"]' in trust["run"]
+    assert 'commit = reference["object"]["sha"]' in trust["run"]
+    assert "?ref={commit}" in trust["run"]
+    assert "pull_request.head" not in trust["run"]
+    assert "uses" not in trust
     for name, job in jobs.items():
         for step in job.get("steps", []):
             if "AI_TELEMETRY_SIGNING_KEY" in step.get("env", {}):

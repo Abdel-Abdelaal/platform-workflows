@@ -505,13 +505,31 @@ jobs:
           create-storage-record: false
       - name: Read the private repository's reviewed signing trust anchor
         if: github.event.repository.visibility == 'private'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
-          path: signing-policy
-          persist-credentials: false
-          sparse-checkout: .github/ai-telemetry-public.pem
-          sparse-checkout-cone-mode: false
+        working-directory: platform
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run --locked --no-dev python - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          from urllib.parse import quote
+          from tools.github_api import github_api
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          metadata = github_api(f"repos/{repository}")
+          if metadata["private"] is not True:
+              raise SystemExit("Private signing policy requires private repository storage.")
+          branch = quote(metadata["default_branch"], safe="")
+          reference = github_api(f"repos/{repository}/git/ref/heads/{branch}")
+          commit = reference["object"]["sha"]
+          policy = github_api(f"repos/{repository}/contents/.github/ai-telemetry-public.pem?ref={commit}")
+          if policy["type"] != "file" or policy["encoding"] != "base64" or policy["size"] > 16384:
+              raise SystemExit("Invalid private signing trust anchor.")
+          target = Path(os.environ["RUNNER_TEMP"]) / "signing-policy"
+          target.mkdir(mode=0o700)
+          (target / "public.pem").write_bytes(base64.b64decode(policy["content"]))
+          PY
       - name: Sign private evidence and verify its reviewed trust anchor
         id: private-sign
         if: github.event.repository.visibility == 'private'
@@ -520,7 +538,7 @@ jobs:
           AI_TELEMETRY_SIGNING_KEY: ${{ secrets.AI_TELEMETRY_SIGNING_KEY }}
         run: |
           uv run --locked --no-dev python -m tools.ai_private_sign sign --record "$RUNNER_TEMP/ai-record.json" --bundle "$RUNNER_TEMP/ai-record.dsse.json"
-          uv run --locked --no-dev python -m tools.ai_private_sign verify --record "$RUNNER_TEMP/ai-record.json" --bundle "$RUNNER_TEMP/ai-record.dsse.json" --public-key "$GITHUB_WORKSPACE/signing-policy/.github/ai-telemetry-public.pem"
+          uv run --locked --no-dev python -m tools.ai_private_sign verify --record "$RUNNER_TEMP/ai-record.json" --bundle "$RUNNER_TEMP/ai-record.dsse.json" --public-key "$RUNNER_TEMP/signing-policy/public.pem"
           echo "bundle_path=$RUNNER_TEMP/ai-record.dsse.json" >> "$GITHUB_OUTPUT"
       - name: Archive signed record durably in this repository
         working-directory: platform
