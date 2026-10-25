@@ -72,6 +72,38 @@ def test_release_archive_never_overwrites_assets_and_handles_creation_race(
     ).read_bytes() == record.read_bytes()
 
 
+@pytest.mark.parametrize("visibility", ["public", "private"])
+def test_private_signature_storage_has_explicit_visibility_and_format(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, visibility: str
+) -> None:
+    for name, value in {
+        "GITHUB_REPOSITORY": "owner/repository",
+        "GITHUB_RUN_ID": "123",
+        "GITHUB_RUN_ATTEMPT": "1",
+        "MODE": "audit",
+        "REPOSITORY_VISIBILITY": visibility,
+    }.items():
+        monkeypatch.setenv(name, value)
+    record = tmp_path / "record.json"
+    bundle = tmp_path / "bundle.json"
+    record.write_text("{}")
+    bundle.write_text("{}")
+    cli = Mock(return_value=subprocess.CompletedProcess([], 0, ""))
+    monkeypatch.setattr(archive, "gh", cli)
+    if visibility == "public":
+        with pytest.raises(ValueError, match="private repository"):
+            archive.archive(
+                record, bundle, tmp_path / "archive", signature_format="dsse"
+            )
+        assert not cli.called
+    else:
+        archive.archive(record, bundle, tmp_path / "archive", signature_format="dsse")
+        assert (tmp_path / "archive/ai-123-1-audit.dsse.json").exists()
+        assert not (tmp_path / "archive/ai-123-1-audit.sigstore.json").exists()
+    with pytest.raises(ValueError, match="unsupported"):
+        archive.archive(record, bundle, tmp_path / "other", signature_format="unknown")
+
+
 def test_archive_rejects_invalid_identity_before_any_command(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

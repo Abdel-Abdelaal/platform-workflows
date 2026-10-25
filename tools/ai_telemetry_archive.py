@@ -122,9 +122,20 @@ def gh(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def archive(record: Path, bundle: Path, directory: Path) -> None:
+def archive(
+    record: Path, bundle: Path, directory: Path, *, signature_format: str = "sigstore"
+) -> None:
     """Append unique record/bundle assets to a monthly prerelease; never replace."""
     repository = os.environ["GITHUB_REPOSITORY"]
+    if signature_format not in {"sigstore", "dsse"}:
+        msg = "unsupported telemetry signature format"
+        raise ValueError(msg)
+    if (
+        signature_format == "dsse"
+        and os.environ.get("REPOSITORY_VISIBILITY") != "private"
+    ):
+        msg = "confidential DSSE records require private repository storage"
+        raise ValueError(msg)
     run_id = os.environ["GITHUB_RUN_ID"]
     attempt = os.environ["GITHUB_RUN_ATTEMPT"]
     mode = os.environ["MODE"]
@@ -140,7 +151,7 @@ def archive(record: Path, bundle: Path, directory: Path) -> None:
     stem = f"ai-{run_id}-{attempt}-{mode}"
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / (stem + ".json")
-    signature = directory / (stem + ".sigstore.json")
+    signature = directory / (stem + f".{signature_format}.json")
     shutil.copyfile(record, target)
     shutil.copyfile(bundle, signature)
     if gh(["release", "view", tag, "--repo", repository]).returncode:
@@ -156,7 +167,7 @@ def archive(record: Path, bundle: Path, directory: Path) -> None:
                 "--title",
                 "AI telemetry " + tag.removeprefix("ai-telemetry-"),
                 "--notes",
-                "Secret-scanned AI records and Sigstore bundles. "
+                "Secret-scanned AI records and signature bundles. "
                 "See platform-workflows/docs/ai-telemetry.md.",
             ]
         )
@@ -182,11 +193,19 @@ def main() -> None:
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--record", type=Path, required=True)
     parser.add_argument("--bundle", type=Path)
+    parser.add_argument(
+        "--signature-format", choices=["sigstore", "dsse"], default="sigstore"
+    )
     args = parser.parse_args()
     if args.command == "finalize":
         finalize(args.directory, args.record)
     elif args.bundle:
-        archive(args.record, args.bundle, args.directory)
+        archive(
+            args.record,
+            args.bundle,
+            args.directory,
+            signature_format=args.signature_format,
+        )
     else:
         parser.error("archive requires --bundle")
 
