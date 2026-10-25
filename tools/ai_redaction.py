@@ -11,7 +11,7 @@ MAX_JSON_STRING_LAYERS = 3
 def replace_value(text: str, key: str, replacement: str) -> str:
     """Also remove ordinary mixed JSON Unicode escapes in diagnostic fragments."""
     text = text.replace(key, replacement)
-    if r"\u" in text and key.isascii():
+    if r"\u" in text and key.isascii() and "\\" not in key:
         pattern = "".join(
             "(?:" + re.escape(char) + "|(?i:" + r"\\u" + f"{ord(char):04x}" + "))"
             for char in key
