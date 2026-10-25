@@ -13,7 +13,10 @@ jobs:
   ai:
     uses: ./.github/workflows/ai.yml
     permissions:
-      contents: read
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
       issues: write
       pull-requests: write
       checks: write
