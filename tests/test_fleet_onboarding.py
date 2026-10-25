@@ -25,7 +25,7 @@ def api_for_proposal(entries: list[dict[str, str]]) -> Mock:
     return Mock(
         side_effect=[
             PUBLIC,
-            {"object": {"sha": SHA}},
+            {"commit": {"sha": SHA}, "protected": True},
             {"truncated": False, "sha": SHA, "tree": entries},
         ]
     )
@@ -99,6 +99,35 @@ def test_existing_enrollment_is_not_overwritten(
     assert fleet.proposal(PUBLIC, {"README.md": "new"})["files"] == {}
 
 
+@pytest.mark.parametrize("protected", [True, False, None])
+def test_enrollment_marker_does_not_hide_missing_protection(
+    monkeypatch: pytest.MonkeyPatch, protected: bool | None
+) -> None:
+    monkeypatch.setattr(
+        fleet,
+        "github_api",
+        Mock(
+            side_effect=[
+                PUBLIC,
+                {"commit": {"sha": SHA}, "protected": protected},
+                {
+                    "truncated": False,
+                    "sha": SHA,
+                    "tree": [
+                        {
+                            "path": ".github/workflows/conformance-checks.yml",
+                            "type": "blob",
+                        }
+                    ],
+                },
+            ]
+        ),
+    )
+    plan = fleet.proposal(PUBLIC, {})
+    assert plan["default_branch_protected"] is protected
+    assert bool(plan["blocking_findings"]) is (protected is not True)
+
+
 @pytest.mark.parametrize(
     "metadata",
     [{**PUBLIC, "private": True}, {**PUBLIC, "default_branch": "bad\nbranch"}],
@@ -115,11 +144,11 @@ def test_invalid_commit_truncated_tree_and_parent_symlink(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     for responses in (
-        [PUBLIC, {"object": {"sha": "main"}}],
-        [PUBLIC, {"object": {"sha": SHA}}, {"truncated": True}],
+        [PUBLIC, {"commit": {"sha": "main"}}],
+        [PUBLIC, {"commit": {"sha": SHA}, "protected": True}, {"truncated": True}],
         [
             PUBLIC,
-            {"object": {"sha": SHA}},
+            {"commit": {"sha": SHA}, "protected": True},
             {
                 "truncated": False,
                 "sha": SHA,

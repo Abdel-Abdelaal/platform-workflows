@@ -14,7 +14,7 @@ from tools.ai_telemetry import mapping
 from tools.github_api import github_api
 
 OWNER = "Abdel-Abdelaal"
-BASELINE_COMMIT = "c5259bf27b3b5af8536d96ee4888748865a0cd22"
+BASELINE_COMMIT = "b0589a8d22fdb96e3424d4c98d0ac9b4f9f9f372"
 BRANCH = "ci/fleet-onboarding"
 PAGE_SIZE = 100
 MAX_FILE_BYTES = 100_000
@@ -27,6 +27,7 @@ CALLERS = (
     "ai-maintenance.yml",
     "baseline.yml",
     "stale-items.yml",
+    "lint.yml",
 )
 FILES = (
     "README.md",
@@ -122,14 +123,21 @@ def proposal(repository: dict[str, Any], starter: dict[str, str]) -> dict[str, A
     ):
         message = "default branch needs manual enrollment review"
         raise ValueError(message)
-    reference = mapping(
-        github_api(f"repos/{name}/git/ref/heads/{quote(branch, safe='')}")
-    )
-    commit = mapping(reference["object"])["sha"]
+    reference = mapping(github_api(f"repos/{name}/branches/{quote(branch, safe='')}"))
+    commit = mapping(reference["commit"])["sha"]
     if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
         message = "default branch did not resolve to an immutable commit"
         raise ValueError(message)
     tracked = tree(name, commit)
+    protection = {
+        "default_branch_protected": reference.get("protected"),
+        "blocking_findings": []
+        if reference.get("protected") is True
+        else [
+            "Default branch protection is missing or unverified; "
+            "enrollment is incomplete until reviewed governance setup."
+        ],
+    }
     entries = objects(tracked["tree"])
     existing = {item["path"] for item in entries}
     for item in entries:
@@ -140,7 +148,12 @@ def proposal(repository: dict[str, Any], starter: dict[str, str]) -> dict[str, A
             message = "starter parent directory is not a regular tree"
             raise ValueError(message)
     if ".github/workflows/conformance-checks.yml" in existing:
-        return {"repository": name, "status": "existing enrollment marker", "files": {}}
+        return {
+            "repository": name,
+            "status": "existing enrollment marker",
+            "files": {},
+            **protection,
+        }
     files = {
         path: text.replace("REPO-NAME", metadata["name"])
         for path, text in starter.items()
@@ -170,6 +183,7 @@ def proposal(repository: dict[str, Any], starter: dict[str, str]) -> dict[str, A
         "base": branch,
         "parent": commit,
         "tree": tracked["sha"],
+        **protection,
     }
 
 
@@ -264,7 +278,7 @@ def publish(plan: dict[str, Any]) -> str | None:
                 "base": plan["base"],
                 "draft": True,
                 "body": "## What\n\nAdd missing reviewed public starter files and "
-                "eight shared process callers. Preserve existing application files."
+                "nine shared process callers. Preserve existing application files."
                 "\n\n## Why\n\nEvery public repository joins by a reviewable PR."
                 "\n\n## How to test\n\nReview licensing and domain instructions. "
                 "Run policy/security checks and add language-specific verification. "
@@ -296,6 +310,8 @@ def main() -> None:
                     "repository": plan["repository"],
                     "status": plan["status"],
                     "missing_files": sorted(plan["files"]),
+                    "default_branch_protected": plan.get("default_branch_protected"),
+                    "blocking_findings": plan.get("blocking_findings", []),
                     "pull_request": publish(plan) if args.apply else None,
                 }
             )

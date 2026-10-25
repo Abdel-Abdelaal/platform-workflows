@@ -14,16 +14,20 @@ and a real hosted enrollment proves it. No personal access token fallback exists
 ## Reviewable changes
 
 The tool proposes missing files from a fixed allowlist: common repository files,
-ownership, Dependabot cooldowns and eight shared callers (PR title, security,
+ownership, Dependabot cooldowns and nine shared callers (PR title, security,
 conformance, Scorecard, AI review, weekly AI maintenance, baseline sync, stale
-items). Existing files, application commands, licensing and domain instructions
+items, language-aware lint). Security uses automatic language detection. Existing
+files, application commands, licensing and domain instructions
 are preserved. The actual default branch replaces the starter's main filter.
 The generated draft PR requires review of licensing, language-specific checks
 and instructions. It never merges, pushes the default branch, force-pushes an
 existing bot branch, executes repository code or applies Terraform.
 
 An existing conformance caller is an enrollment marker, not proof every process
-is healthy. Existing repos continue through fleet health and conformance checks.
+is healthy. The plan reports missing or unverified default-branch protection as a
+blocking finding, even for an existing enrollment marker. A draft proposal can
+still be reviewed, but enrollment remains incomplete until governance protection
+is configured. Existing repos continue through fleet health and conformance checks.
 If a fixed bot branch exists without an open PR, creation fails safely for manual
 inspection. Incomplete trees and symlink parent directories are rejected.
 
