@@ -31,7 +31,11 @@ failed retrievals explicitly. Retrieved text is never treated as instructions.
 OpenCode starts in a clean temporary directory with `--pure`, isolated config/data
 paths, project configuration and external skills disabled, and **every tool denied**.
 The model process receives its provider key and necessary OS variables, with no
-GitHub or App credential. Pydantic validates and bounds the returned JSON.
+GitHub or App credential. Before validation or attempt recording, the actual
+provider credential is replaced in response events, including nested JSON strings
+and ordinary JSON escapes. This exact-value guard also covers failed attempts;
+it is not a general confidential-data detector. Gitleaks still gates input and
+evidence uploads. Pydantic validates and bounds the returned JSON.
 Context is delimited stdin data, with explicit EOF. It stays outside the command
 line and does not consume an internal file-attachment read step. OpenCode1.18.35
 reads noninteractive stdin before starting; inheriting an open stdin can hang.
@@ -131,7 +135,8 @@ The live provider smoke test uses Flash through the same isolated runner.
 
 See [ADR 0004](decisions/0004-isolate-ai-and-keep-feedback-advisory.md).
 
-The hosted workflow also scans the protected handbook snapshot before analysis.
+The hosted workflow scans the fully prepared input, including handbook data,
+immediately before analysis.
 It scans generated evidence before upload, then joins publication receipts and job
 outcomes in a separate signing job. Records and Sigstore bundles are archived as
 public Release assets. See [AI telemetry](ai-telemetry.md) for privacy boundaries,

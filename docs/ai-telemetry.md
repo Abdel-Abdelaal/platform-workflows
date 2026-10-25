@@ -23,7 +23,11 @@ duplicated. A truncated context cannot be interpreted as a complete repository.
 
 `attempts` holds elapsed seconds, exit categories, validation types/field locations,
 bounded response text (100,000 characters), its full digest and truncation flag,
-OpenCode usage components and finish reasons. Raw response text is untrusted data.
+OpenCode usage components and finish reasons. Response text is untrusted data.
+The actual provider credential is redacted before validation or recording, including
+nested JSON escapes. Such responses may be normalized when redaction requires
+decoding nested JSON. Exact-value redaction does not detect other confidential data;
+the hosted evidence scanner remains a separate fail-closed upload gate.
 Validation errors exclude offending inputs, messages and context. Retries append
 the system prompt to the original prompt; failed responses never become prompts.
 Each attempt hashes its actual prompt, including the retry suffix. Diff hash and
