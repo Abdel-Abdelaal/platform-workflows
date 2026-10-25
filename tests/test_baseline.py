@@ -96,3 +96,8 @@ def test_baseline_writer_uses_only_the_trusted_default_branch() -> None:
         if step.get("uses", "").startswith("peter-evans/create-pull-request@")
     )
     assert writer["with"]["base"] == "${{ github.event.repository.default_branch }}"
+    stale = yaml.safe_load(
+        Path(".github/workflows/stale.yml").read_text(encoding="utf-8")
+    )
+    assert "github.event.repository.default_branch" in stale["jobs"]["sweep"]["if"]
+    assert "github.event_name != 'pull_request'" in stale["jobs"]["sweep"]["if"]
