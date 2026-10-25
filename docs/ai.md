@@ -12,8 +12,11 @@ a non-secret variable, defaulting to `https://token-plan-ams.xiaomimimo.com/v1`.
 No key is stored in source, prompts or artifacts. Missing keys skip with a notice;
 fork PRs and Dependabot PRs never receive the key. Local shells use the same names.
 
-In GitHub Actions, a checksum-verified Gitleaks binary scans the source before
-the provider key is supplied. Local/server operators must scan the checkout first.
+In GitHub Actions, a checksum-verified Gitleaks binary scans the fully prepared
+model input before the runner receives its provider key: bounded source/handbook,
+the PR diff, selected prompt and appended health/current-reference data. The
+independent security workflow continues repository-history scanning. Local/server
+operators must scan their prepared input and checkout before provider use.
 Context prioritizes implementation/tests and attaches only standards/*.md from
 the handbook, rather than its baseline/workflow bulk. File reads and metadata are
 bounded; omitted/truncated files and partial diffs are explicit so absence cannot

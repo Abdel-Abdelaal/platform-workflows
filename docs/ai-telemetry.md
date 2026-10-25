@@ -82,8 +82,9 @@ records or feed it back into a model as instructions.
 ## Privacy and trust boundaries
 
 Never collect keys, tokens, environment dumps or provider URL credentials/query
-strings. Identity uses a fixed allowlist. Source and handbook are scanned before
-provider use. Scan generated evidence with the same checksum-verified Gitleaks
+strings. Identity uses a fixed allowlist. Complete prepared inputs are scanned
+before provider use, including source/handbook and appended external data.
+Independent CI retains history scanning. Scan generated evidence with the same checksum-verified Gitleaks
 binary before any upload; a finding blocks publication. Raw model output stays
 out of CI logs. Artifact/release/attestation publishing runs trusted tooling in a
 separate job that does not execute analyzed source. Read-only analysis jobs never
