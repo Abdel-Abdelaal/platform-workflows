@@ -75,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -116,7 +116,7 @@ jobs:
           else
             touch "$RUNNER_TEMP/pr.diff"
           fi
-          uv run --locked --no-dev python -m tools.ai_context --repository "$GITHUB_WORKSPACE/repository" --handbook "$GITHUB_WORKSPACE/handbook" --diff "$RUNNER_TEMP/pr.diff" --output "$RUNNER_TEMP/context.md"
+          uv run --locked --no-dev python -m tools.ai_context --repository "$GITHUB_WORKSPACE/repository" --handbook "$GITHUB_WORKSPACE/handbook" --diff "$RUNNER_TEMP/pr.diff" --output "$RUNNER_TEMP/context.md" --manifest "$RUNNER_TEMP/context-manifest.json"
           if [ "$MODE" = fix ]; then
             gh issue list --state open --label governance --search '"Weekly health report" in:title' --json title,body > "$RUNNER_TEMP/health-report.json"
             head -c 20000 "$RUNNER_TEMP/health-report.json" >> "$RUNNER_TEMP/context.md"
@@ -131,6 +131,10 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           AI_BASE_URL: ${{ vars.AI_BASE_URL || 'https://token-plan-ams.xiaomimimo.com/v1' }}
           MODE: ${{ inputs.mode }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PLATFORM_RELEASE: v1.7.0
+          TOOLING_COMMIT: 2a7948d382d514ea223c7f21391df665680db8c0
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
@@ -138,9 +142,28 @@ jobs:
           # reaches the JSON answer (see docs/ai.md); diff review keeps it on.
           thinking=disabled
           if [ "$MODE" = review ]; then thinking=enabled; fi
-          uv run --locked --no-dev python -m tools.ai_runner --context "$RUNNER_TEMP/context.md" --prompt "prompts/$prompt.md" --output "$RUNNER_TEMP/analysis.json" --thinking "$thinking"
+          uv run --locked --no-dev python -m tools.ai_runner --context "$RUNNER_TEMP/context.md" --prompt "prompts/$prompt.md" --output "$RUNNER_TEMP/analysis.json" --thinking "$thinking" --record "$RUNNER_TEMP/ai-record.json" --manifest "$RUNNER_TEMP/context-manifest.json" --diff "$RUNNER_TEMP/pr.diff"
+      - name: Secret-scan model evidence before any upload
+        id: evidence-scan
+        if: always() && steps.available.outputs.ready == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/model-evidence"
+          if [ -f "$RUNNER_TEMP/ai-record.json" ]; then
+            cp "$RUNNER_TEMP/ai-record.json" "$RUNNER_TEMP/model-evidence/"
+          fi
+          if [ -f "$RUNNER_TEMP/analysis.json" ]; then
+            cp "$RUNNER_TEMP/analysis.json" "$RUNNER_TEMP/model-evidence/"
+          fi
+          "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/model-evidence" --redact --no-banner --exit-code 1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.available.outputs.ready == 'true'
+        if: always() && steps.evidence-scan.outcome == 'success'
+        with:
+          name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-analysis
+          path: ${{ runner.temp }}/ai-record.json
+          if-no-files-found: ignore
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: success() && steps.evidence-scan.outcome == 'success'
         with:
           name: ai-result-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -164,7 +187,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -184,7 +207,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: uv run --locked --no-dev python -m tools.ai_publish --mode review --repository "$GH_REPO" --number "$PR_NUMBER" --head-sha "$HEAD_SHA" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --diff "$GITHUB_WORKSPACE/analysis/pr.diff"
+        run: uv run --locked --no-dev python -m tools.ai_publish --mode review --repository "$GH_REPO" --number "$PR_NUMBER" --head-sha "$HEAD_SHA" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --diff "$GITHUB_WORKSPACE/analysis/pr.diff" --receipt "$RUNNER_TEMP/publication.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
+          path: ${{ runner.temp }}/publication.json
+          retention-days: 90
   publish-audit:
     name: Publish weekly health report
     needs: analyze
@@ -201,7 +229,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -219,7 +247,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: uv run --locked --no-dev python -m tools.ai_publish --mode audit --repository "$GH_REPO" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json"
+        run: uv run --locked --no-dev python -m tools.ai_publish --mode audit --repository "$GH_REPO" --analysis "$GITHUB_WORKSPACE/analysis/analysis.json" --receipt "$RUNNER_TEMP/publication.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
+          path: ${{ runner.temp }}/publication.json
+          retention-days: 90
   validate-fix:
     name: Test proposed patch without provider or App credentials
     needs: analyze
@@ -242,7 +275,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -305,7 +338,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -337,6 +370,7 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
       - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        id: proposal
         with:
           token: ${{ steps.app.outputs.token }}
           path: repository
@@ -358,8 +392,100 @@ jobs:
             docs/**
             standards/**
             README.md
-  report:
+      - name: Record draft proposal coordinates
+        env:
+          PR_NUMBER: ${{ steps.proposal.outputs.pull-request-number }}
+          PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
+          OPERATION: ${{ steps.proposal.outputs.pull-request-operation }}
+        run: |
+          jq -n '{status: "proposal_processed", number: env.PR_NUMBER, url: env.PR_URL, operation: env.OPERATION}' > "$RUNNER_TEMP/publication.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-publication
+          path: ${{ runner.temp }}/publication.json
+          retention-days: 90
+  telemetry:
+    name: Sign and archive AI evidence
     needs: [analyze, publish-review, publish-audit, validate-fix, propose-fix]
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.id != 49699333))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Abdel-Abdelaal/platform-workflows
+          ref: 2a7948d382d514ea223c7f21391df665680db8c0 # reviewed telemetry tooling
+          path: platform
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - run: uv sync --locked --no-dev
+        working-directory: platform
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ai-evidence-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: evidence
+          merge-multiple: true
+      - name: Join evidence without executing analyzed source
+        working-directory: platform
+        env:
+          MODE: ${{ inputs.mode }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PLATFORM_RELEASE: v1.7.0
+          TOOLING_COMMIT: 2a7948d382d514ea223c7f21391df665680db8c0
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: uv run --locked --no-dev python -m tools.ai_telemetry_archive finalize --directory "$GITHUB_WORKSPACE/evidence" --record "$RUNNER_TEMP/ai-record.json"
+      - name: Secret-scan final evidence before publication
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks" "$RUNNER_TEMP/ai-evidence-scan"
+          curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar --extract --gzip --file "$RUNNER_TEMP/gitleaks.tar.gz" --directory "$RUNNER_TEMP/gitleaks"
+          cp "$RUNNER_TEMP/ai-record.json" "$RUNNER_TEMP/predicate.json" "$RUNNER_TEMP/ai-evidence-scan/"
+          "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/ai-evidence-scan" --redact --no-banner --exit-code 1
+      - name: Attest complete record
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/ai-record.json
+          predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-telemetry.md#record-v1
+          predicate-path: ${{ runner.temp }}/predicate.json
+          create-storage-record: false
+      - name: Archive signed record durably in this repository
+        working-directory: platform
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: uv run --locked --no-dev python -m tools.ai_telemetry_archive archive --record "$RUNNER_TEMP/ai-record.json" --bundle "$BUNDLE" --directory "$RUNNER_TEMP/signed-ai-records"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.attest.outcome == 'success'
+        with:
+          name: ai-telemetry-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ai-record.json
+            ${{ steps.attest.outputs.bundle-path }}
+          retention-days: 90
+
+  report:
+    needs: [analyze, publish-review, publish-audit, validate-fix, propose-fix, telemetry]
     if: failure() && github.event_name == 'schedule'
     uses: ./.github/workflows/report-failure.yml
     permissions:

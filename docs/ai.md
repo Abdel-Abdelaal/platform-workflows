@@ -67,8 +67,10 @@ Every caller pins the workflow release commit. The workflow itself pins a separa
 reviewed tooling commit containing its scripts, prompts and lockfiles; callers cannot
 choose executable tooling through an input. Internal relative workflow calls are
 tied to the release commit. Do not use `secrets: inherit`.
-The complete permission set required by the wrapper is contents read, issues write,
-pull-requests write and checks write; individual jobs narrow it to their purpose.
+The wrapper's permission ceiling is contents write, actions read, issues write,
+pull-requests write, checks write, id-token write and attestations write. Individual
+jobs narrow it to their purpose. Only the separate telemetry job receives archive
+and signing writes; the provider job keeps contents/issues read.
 Review and audit only need the API key. Fix/standards jobs additionally need the
 automation App ID/key and skip explicitly until those are configured.
 
@@ -124,6 +126,10 @@ The live provider smoke test uses Flash through the same isolated runner.
 See [ADR 0004](decisions/0004-isolate-ai-and-keep-feedback-advisory.md).
 
 The hosted workflow also scans the protected handbook snapshot before analysis.
+It scans generated evidence before upload, then joins publication receipts and job
+outcomes in a separate signing job. Records and Sigstore bundles are archived as
+public Release assets. See [AI telemetry](ai-telemetry.md) for privacy boundaries,
+querying and verification. This is prospective collection, not historical coverage.
 Only `standards/*.md` enters the context; handbook files are data and are never
 executed. Provider jobs install locked runtime dependencies with `--no-dev`.
 The separate hook validation and test jobs install developer tools without provider
