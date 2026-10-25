@@ -67,7 +67,7 @@ is tracked by consumer PRs; a configured file is not evidence of a successful ru
 ## Workflows
 
 | Workflow | Purpose | Write capability |
-|---|---|---|
+| --- | --- | --- |
 | `ai-review.yml` | PR diff review | separate publisher updates one summary and notice annotations |
 | `ai-audit.yml` | weekly whole-repo coding audit | separate publisher maintains one health issue |
 | `ai-fix.yml` | one focused proposal from the health report | tested patch, then one draft App-authored PR |

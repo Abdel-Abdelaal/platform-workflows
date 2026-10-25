@@ -62,6 +62,9 @@ jobs:
           VALIDATE_TYPESCRIPT_PRETTIER: 'false'
           VALIDATE_VUE_PRETTIER: 'false'
           VALIDATE_YAML_PRETTIER: 'false'
+          # Prose wording follows the handbook's writing standard (and its own
+          # vocabulary, such as "repo"), not textlint's generic terminology list.
+          VALIDATE_NATURAL_LANGUAGE: 'false'
           # Covered elsewhere with fleet-specific settings, so not duplicated here:
           # Python formatting/typing (ruff + Pyright in python-ci), secrets
           # (gitleaks in security), workflows (actionlint + zizmor in security),

@@ -12,7 +12,7 @@ shipped, and product repos opt in with a few lines of YAML.
 ## Workflows
 
 | Workflow | What it checks | Called with |
-|---|---|---|
+| --- | --- | --- |
 | [`security.yml`](.github/workflows/security.yml) | CodeQL, dependency review, secret scanning, actionlint and zizmor | PR, push and schedule through caller |
 | [`python-ci.yml`](.github/workflows/python-ci.yml) | format, lint, strict types, branch coverage, dependency audit (pip-audit, plus advisory OSV-Scanner); when the caller installs them: import-linter contracts, deptry, vulture; jscpd duplication at most 3%; optional Sonar | `workflow_call` |
 | [`report-failure.yml`](.github/workflows/report-failure.yml) | idempotent issue for scheduled failures | failed scheduled caller |
