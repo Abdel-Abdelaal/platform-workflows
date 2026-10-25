@@ -72,7 +72,7 @@ pins the coding CLI and native packages; Dependabot monitors npm, uv and Actions
 
 ## Python quality gates
 
-Call `python-ci.yml@v1` as job `ci` with `contents: read`, then require its real
+Call `python-ci.yml` pinned to the reviewed release commit SHA as job `ci` with `contents: read`, then require its real
 check names after the first successful consumer run. Inputs: `python-version`
 (default 3.12) and `coverage-min` (default 90). Optional SONAR_TOKEN is passed
 explicitly; analysis also needs verified sonar-project.properties in the consumer.
@@ -81,7 +81,7 @@ pip-audit. Fork PRs never receive provider or deployment credentials.
 
 ## Security checks
 
-Call `security.yml@v1` with a JSON `languages` input, such as `["python","actions"]`.
+Call `security.yml` pinned to the reviewed release commit SHA with a JSON `languages` input, such as `["python","actions"]`.
 Caller permissions must include contents read, pull-requests write and
 security-events write; each job narrows that set. Fork and Dependabot dependency
 reviews do not try to post privileged comments. No PR source receives App keys.
@@ -94,6 +94,15 @@ Every remote action and workflow is SHA-pinned, including our own releases.
 
 Managed callers pin release commit SHAs; Dependabot proposes reviewed updates.
 The `v1` tag remains available for discovery, while fleet execution is reproducible.
+
+## Advisory AI maintenance
+
+Same-repository PRs receive an isolated MiMo 2.6 Flash review; fork and Dependabot
+PRs skip. Findings are non-blocking summaries and neutral notice annotations.
+Weekly audits maintain one health issue. A bounded, tested draft fix PR is possible
+only after the automation App is configured; otherwise that step skips explicitly.
+No AI check is required for merging, and no AI workflow can merge or approve.
+See [the isolation design](https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai.md).
 
 ## Reviewed maintenance workflows
 
