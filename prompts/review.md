@@ -13,6 +13,8 @@ Return only a JSON object matching this shape:
  "patch":""}
 Use at most 10 comments, each only on an added line in the actual diff. Use an empty
 comments array if there are no substantive findings. Never output approval events.
+Each comment object has exactly three keys, "path", "line" and "body", and no others
+(no severity, category or title keys). Always leave "patch" as an empty string.
 
 Encode Markdown and diff newlines as \n inside JSON strings; never use literal
 newlines inside quoted JSON values. Return no prose outside the JSON object.

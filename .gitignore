@@ -11,3 +11,6 @@ htmlcov/
 analysis.json
 requirements-audit.txt
 node_modules/
+redteam/node_modules/
+redteam/.promptfoo/
+redteam/results.json
