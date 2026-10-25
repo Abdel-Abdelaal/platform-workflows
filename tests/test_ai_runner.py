@@ -2,6 +2,7 @@ import json
 import sys
 from pathlib import Path
 from subprocess import CompletedProcess
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -45,6 +46,9 @@ def test_runner_uses_clean_directory_pure_mode_and_validates_output(
     result = ai_runner.analyze("untrusted data", "trusted prompt", "key")
     assert result.summary == "review"
     assert "--pure" in run.call_args.args[0]
+    assert "--file" not in run.call_args.args[0]
+    assert "untrusted data" in run.call_args.kwargs["input"]
+    assert "untrusted data" not in run.call_args.args[0]
     assert run.call_args.kwargs["timeout"] == 300
     assert "GH_TOKEN" not in run.call_args.kwargs["env"]
 
@@ -101,6 +105,7 @@ def test_invalid_tool_text_retries_without_executing_or_echoing(
 
 def test_exhausted_analysis_fails_without_provider_output(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(ai_runner.shutil, "which", Mock(return_value="opencode"))
     run = Mock(return_value=CompletedProcess([], 0, "private invalid output"))
@@ -109,3 +114,32 @@ def test_exhausted_analysis_fails_without_provider_output(
         ai_runner.analyze("context", "prompt", "key")
     assert run.call_count == 3
     assert "private" not in str(error.value)
+    assert "private" not in capsys.readouterr().err
+
+
+def test_context_pipe_reaches_eof_in_a_real_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_run = ai_runner.subprocess.run
+    program = (
+        "import json,sys; text=sys.stdin.read(); "
+        "print(json.dumps({'type':'text','part':{'text':"
+        "json.dumps({'summary':str(len(text))})}}))"
+    )
+
+    def child(*_args: object, **kwargs: object) -> CompletedProcess[str]:
+        # A fixed Python program measures data; repository text is never executed.
+        return real_run(
+            [sys.executable, "-c", program],
+            input=cast("str", kwargs.get("input", "")),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+
+    monkeypatch.setattr(ai_runner.shutil, "which", Mock(return_value="opencode"))
+    monkeypatch.setattr(ai_runner.subprocess, "run", child)
+    context = "untrusted data " * 10000
+    result = ai_runner.analyze(context, "trusted prompt", "key")
+    assert int(result.summary) > len(context)
