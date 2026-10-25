@@ -1,4 +1,4 @@
-# ADR 0006: signed per-repository AI records in public Release assets
+# ADR 0007: signed per-repository AI records in public Release assets
 
 Status: accepted for implementation; activation needs hosted verification.
 

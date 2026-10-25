@@ -1,5 +1,7 @@
 # platform-workflows
 
+[![AI telemetry](https://img.shields.io/endpoint?url=https%3A%2F%2Fabdel-abdelaal.github.io%2Fgithub-governance%2Fbadge.json)](https://abdel-abdelaal.github.io/github-governance/)
+
 Shared GitHub Actions workflows for my repositories. Each service repo calls these
 instead of copying CI logic around, so a fix or a new check lands everywhere at once.
 
@@ -54,6 +56,24 @@ as draft PRs. AI never approves, merges or becomes a required check.
 Reusable entry points are `ai-review.yml`, `ai-audit.yml`, `ai-fix.yml` and
 `ai-standards-review.yml`. Pin their release commit; executable tooling is fixed to a separately reviewed
 commit inside the workflow. Explicitly pass only the named secrets needed by the mode.
+
+### Signed AI telemetry
+
+The [public AI observatory](https://abdel-abdelaal.github.io/github-governance/)
+calculates metrics from signature-verified records, with a downloadable JSONL
+dataset. [Record schema and privacy rules](docs/ai-telemetry.md) describe input
+hashes/manifests, per-attempt tokens and latency, validation failures, validated
+output, patch/filtering decisions and GitHub publication receipts.
+
+Records are secret-scanned, signed using GitHub/Sigstore attestations and archived
+with their bundles as public monthly Release assets in each originating repo.
+The provider job remains read-only; only a separate trusted job signs and archives.
+Shortlink [review run 40190530711](https://github.com/Abdel-Abdelaal/shortlink/actions/runs/40190530711)
+and [audit run 40191001176](https://github.com/Abdel-Abdelaal/shortlink/actions/runs/40191001176)
+proved the complete path, including an explicit signed credential-skip record for
+fix mode. Collection is prospective and follows caller adoption.
+Outcome quality and red-team rates remain unavailable until collected; PR-Agent's
+separate trial is outside the isolated-runner dataset.
 
 ## Validate the platform itself
 
@@ -135,8 +155,8 @@ Release-please's pinned engine17.6.0 needs `.name.value` in the uv.lock TOML sel
 that selector was tested against real lock data and changes only the root package.
 App-based release creation still needs owner setup and a live integration run.
 
-Maintenance callers now pin platform v1.6.0 (`9963dc1ffc49cff752cc62f2ec9c1651bdb3f482`).
-Its corrected AI runtime awaits consumer audit verification. Frozen hook checks
+Managed callers pin full platform release commits. Verified telemetry adoption is
+visible in the public observatory rather than inferred from configuration. Frozen hook checks
 run where a hook configuration is supported; native Dependabot maintains baseline
 hook revisions. Stale/release mutations remain explicitly gated on canonical
 labels and maintenance App setup. The Python audit includes development tooling.
