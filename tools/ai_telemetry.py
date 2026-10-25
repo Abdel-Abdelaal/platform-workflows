@@ -142,7 +142,12 @@ def event_usage(events: str) -> dict[str, Any]:
 
 
 def record_attempt(
-    events: str, duration: float, error: Exception | None, *, prompt: str = ""
+    events: str,
+    duration: float,
+    error: Exception | None,
+    *,
+    prompt: str = "",
+    secret_redactions: int | None = None,
 ) -> None:
     """Retain response text as bounded data and errors without offending values."""
     record = CURRENT.get()
@@ -154,6 +159,8 @@ def record_attempt(
         **event_usage(events),
         "prompt_sha256": digest(prompt),
     }
+    if secret_redactions is not None:
+        attempt["secret_values_redacted"] = secret_redactions
     if isinstance(error, ValidationError):
         attempt["validation_errors"] = [
             {"type": item["type"], "loc": item["loc"]}

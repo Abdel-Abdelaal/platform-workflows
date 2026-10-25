@@ -39,6 +39,10 @@ def test_unstructured_failure_and_empty_key() -> None:
         == ai_redaction.REDACTED
     )
     assert ai_redaction.redact_events("unchanged", "") == "unchanged"
+    assert (
+        ai_redaction.redact_events(r"failed: \u0070rovider-secret", "provider-secret")
+        == "failed: " + ai_redaction.REDACTED
+    )
 
 
 @pytest.mark.parametrize("failure", [False, True])

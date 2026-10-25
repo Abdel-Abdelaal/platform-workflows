@@ -115,3 +115,33 @@ Outcome collectors can join repository + PR number + head SHA + comment ID to
 measure merges, changed flagged lines and reactions, or draft PR lifecycle. Until
 collected, those values remain unknown. Red-team/PR-Agent measurements require
 their own instrumentation; never infer them from isolated-runner records.
+
+### Deterministic output scanning
+
+The runner can opt into the existing
+[Gitleaks](https://github.com/gitleaks/gitleaks/tree/83d9cd684c87d95d656c1458ef04895a7f1cbd8e)
+rules with `AI_OUTPUT_SECRET_SCANNER`, an absolute path to the caller's
+checksum-verified binary. The known provider key is always removed first. Generic
+scanning is inactive until the executable tooling pin and workflow environment
+are updated; the presence of this helper alone is not deployment evidence.
+
+When configured, the scanner must exist before inference. Successful and failed
+response events are scanned before parsing, recording or publication. Ordinary
+JSON strings and code fences are decoded for detection, up to three JSON layers;
+deeper encodings, oversized data, invalid reports and scanner errors fail closed.
+The scanner runs in a fresh directory with OS plumbing only, no provider/GitHub
+credentials and no repository-controlled scanner configuration. Its report is an
+ephemeral restricted file; raw scanner diagnostics never enter logs or records.
+
+Matched values are redacted in the original event structure. Attempts retain the
+number of distinct `secret_values_redacted`, preserving usage. A patch containing
+a scanner redaction is rejected, so placeholder credentials cannot become a fix.
+A scanner infrastructure failure retains an empty-response failure record and
+does not retry provider inference solely for that failure. The final whole-record
+secret scan before uploading remains an independent guard.
+
+Detection depends on the pinned scanner's rules and the stated decoding bounds;
+it cannot establish that every possible secret or encoding is recognized. The
+red-team workflow must install the same verified scanner and set the variable to
+exercise this path. Its source remains separately owned, and OWASP LLM02 remains
+partial pending a real red-team proof.

@@ -14,6 +14,8 @@ from pydantic import ValidationError
 
 from tools import ai_telemetry
 from tools.ai_contract import Analysis, extract_text, parse_analysis
+from tools.ai_output_scan import REDACTED as SCANNER_REDACTED
+from tools.ai_output_scan import OutputScanError, scan_events, scanner_path
 from tools.ai_redaction import redact_events
 
 MODEL = "mimo/mimo-v2.6-flash"
@@ -46,6 +48,37 @@ class MissingRunnerError(Exception):
 
 class AnalysisUnavailableError(Exception):
     """Bounded analysis attempts failed; raw provider output stays private."""
+
+
+class SecretPatchError(ValueError):
+    """A secret-bearing patch must not become an executable replacement patch."""
+
+
+def safe_events(events: str, key: str, scanner: Path | None) -> tuple[str, int | None]:
+    """Always remove the known key, then optionally scan other decoded secrets."""
+    cleaned = redact_events(events, key)
+    if scanner is None:
+        return cleaned, None
+    return scan_events(cleaned, scanner)
+
+
+def prepare_output_scanner() -> Path | None:
+    """Check required scanning before consuming provider inference or credentials."""
+    record = ai_telemetry.CURRENT.get()
+    try:
+        scanner = scanner_path()
+    except OutputScanError:
+        if record is not None:
+            record.update(
+                evidence_gap=True,
+                evidence_gap_reason="output secret scanner unavailable",
+            )
+        raise AnalysisUnavailableError from None
+    if record is not None:
+        record["configuration"]["output_secret_scan"] = (
+            "gitleaks" if scanner is not None else "not configured"
+        )
+    return scanner
 
 
 SYSTEM_PROMPT = (
@@ -148,6 +181,7 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
     executable = shutil.which("opencode")
     if executable is None:
         raise MissingRunnerError
+    scanner = prepare_output_scanner()
     with tempfile.TemporaryDirectory(prefix="showcase-ai-") as directory:
         workspace = Path(directory)
         command = [
@@ -166,6 +200,8 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
         for attempt in range(3):
             started = time.monotonic()
             events = ""
+            sanitized = False
+            redactions: int | None = None
             try:
                 result = subprocess.run(
                     command,
@@ -178,8 +214,16 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                     encoding="utf-8",
                     timeout=600,
                 )
-                events = redact_events(result.stdout, key)
+                events, redactions = safe_events(result.stdout, key, scanner)
+                sanitized = True
                 analysis = parse_analysis(extract_text(events))
+                if redactions and SCANNER_REDACTED in analysis.patch:
+                    raise SecretPatchError
+            except OutputScanError as error:
+                ai_telemetry.record_attempt(
+                    "", time.monotonic() - started, error, prompt=command[-1]
+                )
+                raise AnalysisUnavailableError from None
             except (
                 ValidationError,
                 ValueError,
@@ -197,9 +241,23 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                         if isinstance(output, bytes)
                         else output or ""
                     )
-                events = redact_events(events, key)
+                if not sanitized:
+                    try:
+                        events, redactions = safe_events(events, key, scanner)
+                    except OutputScanError as scan_error:
+                        ai_telemetry.record_attempt(
+                            "",
+                            time.monotonic() - started,
+                            scan_error,
+                            prompt=command[-1],
+                        )
+                        raise AnalysisUnavailableError from None
                 ai_telemetry.record_attempt(
-                    events, time.monotonic() - started, error, prompt=command[-1]
+                    events,
+                    time.monotonic() - started,
+                    error,
+                    prompt=command[-1],
+                    secret_redactions=redactions,
                 )
                 # Never feed failed output back as instructions or print it in CI.
                 sys.stderr.write(
@@ -209,7 +267,11 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 command[-1] = prompt + "\n" + SYSTEM_PROMPT
             else:
                 ai_telemetry.record_attempt(
-                    events, time.monotonic() - started, None, prompt=command[-1]
+                    events,
+                    time.monotonic() - started,
+                    None,
+                    prompt=command[-1],
+                    secret_redactions=redactions,
                 )
                 return analysis
     raise AnalysisUnavailableError from None
