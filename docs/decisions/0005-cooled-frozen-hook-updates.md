@@ -1,6 +1,6 @@
 # Select eligible hook releases before freezing their revisions
 
-Status: accepted
+Status: superseded by [ADR0006](0006-native-dependabot-hook-updates.md)
 
 `pre-commit autoupdate --freeze` selects the newest upstream tag. It cannot select
 the newest release that has already passed the fleet's fourteen-day cooldown.
