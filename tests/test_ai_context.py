@@ -153,4 +153,4 @@ def test_context_cli(
     ai_context.main()
     assert "source" in output.read_text()
     if with_handbook:
-        assert snapshot.call_args.kwargs == {"prefix": "standards/"}
+        assert snapshot.call_args.kwargs == {"prefix": "standards/", "manifest": []}
