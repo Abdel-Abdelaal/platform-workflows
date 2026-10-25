@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tools.baseline import (
     FILES,
@@ -34,9 +35,8 @@ def test_sync_is_dry_by_default_and_idempotent(baseline: tuple[Path, Path]) -> N
 
 def test_exceptions_preserve_local_changes(baseline: tuple[Path, Path]) -> None:
     source, repository = baseline
-    (repository / ".baseline-ignore").write_text(
-        "# reviewed exception\n\n.editorconfig\n"
-    )
+    exception_list = "# reviewed exception\n\n.editorconfig\n"
+    (repository / ".baseline-ignore").write_text(exception_list)
     (repository / ".editorconfig").write_text("local override")
     assert ".editorconfig" not in synchronize(source, repository, apply=True)
     assert (repository / ".editorconfig").read_text() == "local override"
@@ -74,3 +74,30 @@ def test_cli_dry_run(
     monkeypatch.setattr(sys, "argv", ["baseline", str(source), str(repository)])
     main()
     assert not list(repository.iterdir())
+
+
+def test_baseline_writer_uses_only_the_trusted_default_branch() -> None:
+    workflow = yaml.safe_load(
+        Path(".github/workflows/baseline-sync.yml").read_text(encoding="utf-8")
+    )
+    sync = workflow["jobs"]["sync"]
+    assert "github.event.repository.default_branch" in sync["if"]
+    assert "github.event_name != 'pull_request'" in sync["if"]
+    checkout = next(
+        step
+        for step in sync["steps"]
+        if step.get("with", {}).get("path") == "repository"
+    )
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    assert checkout["with"]["persist-credentials"] is False
+    writer = next(
+        step
+        for step in sync["steps"]
+        if step.get("uses", "").startswith("peter-evans/create-pull-request@")
+    )
+    assert writer["with"]["base"] == "${{ github.event.repository.default_branch }}"
+    stale = yaml.safe_load(
+        Path(".github/workflows/stale.yml").read_text(encoding="utf-8")
+    )
+    assert "github.event.repository.default_branch" in stale["jobs"]["sweep"]["if"]
+    assert "github.event_name != 'pull_request'" in stale["jobs"]["sweep"]["if"]

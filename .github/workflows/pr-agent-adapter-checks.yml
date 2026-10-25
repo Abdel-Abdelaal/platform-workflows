@@ -1,0 +1,26 @@
+name: PR-Agent adapter checks
+on:
+  pull_request:
+    paths:
+      - actions/pr-agent/**
+      - .github/workflows/pr-agent-adapter-checks.yml
+  workflow_dispatch:
+permissions: {}
+jobs:
+  runtime:
+    name: Import the immutable PR-Agent runtime without credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the pinned adapter
+        run: docker build --tag pr-agent-adapter:check actions/pr-agent
+      - name: Import the GitHub runner without provider or GitHub credentials
+        run: docker run --rm --entrypoint python pr-agent-adapter:check -c 'import pr_agent.servers.github_action_runner; print("Pinned PR-Agent GitHub runner imports successfully.")'

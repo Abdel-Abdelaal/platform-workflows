@@ -77,3 +77,11 @@ jobs:
           name: public-enrollment-plan
           path: ${{ runner.temp }}/enrollment-plan.json
           retention-days: 14
+  report:
+    needs: enroll
+    if: failure() && github.event_name == 'schedule'
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Scheduled public repository enrollment failed

@@ -1,0 +1,17 @@
+name: Pinned PR-Agent trial
+description: Run the reviewed PR-Agent GitHub entrypoint with an immutable runtime image
+inputs:
+  artifact_path:
+    description: Optional extra-context artifact path
+    required: false
+    default: ''
+  artifact_instructions:
+    description: Instructions for the optional extra-context artifact
+    required: false
+    default: ''
+runs:
+  using: docker
+  image: Dockerfile
+  env:
+    ARTIFACT_PATH: ${{ inputs.artifact_path }}
+    ARTIFACT_INSTRUCTIONS: ${{ inputs.artifact_instructions }}
