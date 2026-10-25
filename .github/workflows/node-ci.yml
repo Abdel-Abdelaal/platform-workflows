@@ -1,0 +1,73 @@
+# TypeScript/JavaScript quality gate: reproducible install from the lockfile,
+# then the project's own lint, typecheck and test scripts, then an audit of
+# production dependencies. Works with npm, pnpm or yarn (via Corepack).
+name: Node CI
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: '22'
+      working-directory:
+        type: string
+        default: '.'
+      allow-install-scripts:
+        description: Run dependency install scripts (off by default; supply-chain risk).
+        type: boolean
+        default: false
+permissions: {}
+jobs:
+  node:
+    name: Node (install, lint, types, test, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Install exactly what the lockfile says
+        env:
+          ALLOW_SCRIPTS: ${{ inputs.allow-install-scripts }}
+        run: |
+          scripts_flag=--ignore-scripts
+          if [ "$ALLOW_SCRIPTS" = true ]; then scripts_flag=; fi
+          if [ -f pnpm-lock.yaml ]; then
+            corepack enable && pnpm install --frozen-lockfile $scripts_flag
+            echo 'PACKAGE_MANAGER=pnpm' >> "$GITHUB_ENV"
+          elif [ -f yarn.lock ]; then
+            corepack enable && yarn install --immutable
+            echo 'PACKAGE_MANAGER=yarn' >> "$GITHUB_ENV"
+          elif [ -f package-lock.json ]; then
+            npm ci $scripts_flag
+            echo 'PACKAGE_MANAGER=npm' >> "$GITHUB_ENV"
+          else
+            echo '::error::No lockfile found; installs must be reproducible.'
+            exit 1
+          fi
+      - name: Lint, type-check and test with the project's own scripts
+        run: |
+          for script in lint typecheck test; do
+            if node -e "process.exit(require('./package.json').scripts?.[process.argv[1]] ? 0 : 1)" "$script"; then
+              "$PACKAGE_MANAGER" run "$script"
+            else
+              echo "Skipped \`$script\`: not defined in package.json." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Audit production dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            pnpm) pnpm audit --prod --audit-level high ;;
+            yarn) yarn npm audit --environment production --severity high ;;
+            npm) npm audit --omit=dev --audit-level=high ;;
+          esac
