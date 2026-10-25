@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   sweep:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
