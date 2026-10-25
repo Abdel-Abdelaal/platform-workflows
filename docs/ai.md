@@ -27,7 +27,7 @@ Context is delimited stdin data, with explicit EOF. It stays outside the command
 line and does not consume an internal file-attachment read step. OpenCode1.18.35
 reads noninteractive stdin before starting; inheriting an open stdin can hang.
 A real child-process regression checks that large context reaches EOF. At most
-three attempts run. The32768-token completion budget includes reasoning as well as
+three attempts run, each bounded to ten minutes for whole-repository audits. The32768-token completion budget includes reasoning as well as
 JSON output: the previous8192-token cap was exhausted entirely by reasoning in
 a real audit, with no final text. Output objects retain their smaller schema limits.
 Logs expose only exception categories, never raw provider

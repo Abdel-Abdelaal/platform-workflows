@@ -53,7 +53,7 @@ def test_runner_uses_clean_directory_pure_mode_and_validates_output(
     assert "--file" not in run.call_args.args[0]
     assert "untrusted data" in run.call_args.kwargs["input"]
     assert "untrusted data" not in run.call_args.args[0]
-    assert run.call_args.kwargs["timeout"] == 300
+    assert run.call_args.kwargs["timeout"] == 600
     assert "GH_TOKEN" not in run.call_args.kwargs["env"]
 
 

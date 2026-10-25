@@ -150,7 +150,7 @@ def analyze(context: str, prompt: str, key: str) -> Analysis:
                     input=data,
                     text=True,
                     encoding="utf-8",
-                    timeout=300,
+                    timeout=600,
                 )
                 return parse_analysis(extract_text(result.stdout))
             except (
