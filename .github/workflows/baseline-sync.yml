@@ -51,7 +51,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0

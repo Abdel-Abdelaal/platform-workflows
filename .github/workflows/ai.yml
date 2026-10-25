@@ -75,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -134,7 +134,11 @@ jobs:
         run: |
           prompt="$MODE"
           if [ "$MODE" = standards ]; then prompt=standards-review; fi
-          uv run --locked --no-dev python -m tools.ai_runner --context "$RUNNER_TEMP/context.md" --prompt "prompts/$prompt.md" --output "$RUNNER_TEMP/analysis.json"
+          # Whole-repository modes turn reasoning off so the completion budget
+          # reaches the JSON answer (see docs/ai.md); diff review keeps it on.
+          thinking=disabled
+          if [ "$MODE" = review ]; then thinking=enabled; fi
+          uv run --locked --no-dev python -m tools.ai_runner --context "$RUNNER_TEMP/context.md" --prompt "prompts/$prompt.md" --output "$RUNNER_TEMP/analysis.json" --thinking "$thinking"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.available.outputs.ready == 'true'
         with:
@@ -160,7 +164,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -197,7 +201,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -238,7 +242,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -301,7 +305,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: 65804da81d0c45b9768b40dfb54d8452b81cae8d # reviewed tooling through PR 20
+          ref: cbe21900fd045fd6c085b9be0beef40ca685de9d # reviewed tooling through PR 24
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
