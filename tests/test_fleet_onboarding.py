@@ -186,6 +186,33 @@ def test_templates_are_fixed_pinned_regular_bounded_files(
             fleet.templates()
 
 
+def test_owned_callers_use_reviewed_release_without_changing_third_parties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = (
+        f"uses: {fleet.OWNER}/platform-workflows/.github/workflows/lint.yml@"
+        + "a" * 40
+        + " # old release\n"
+        + "uses: third-party/action@"
+        + "b" * 40
+        + " # retained\n"
+    )
+    monkeypatch.setattr(
+        fleet,
+        "github_api",
+        Mock(
+            return_value={
+                "type": "file",
+                "encoding": "base64",
+                "content": base64.b64encode(source.encode()).decode(),
+            }
+        ),
+    )
+    rendered = fleet.templates()[".github/workflows/lint.yml"]
+    assert f"@{fleet.PLATFORM_COMMIT} # {fleet.PLATFORM_RELEASE}" in rendered
+    assert "uses: third-party/action@" + "b" * 40 + " # retained\n" in rendered
+
+
 def test_preserve_provider_secret_in_later_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -250,14 +277,17 @@ def test_publish_draft_only_without_force_or_main_write(
     assert all("force" not in call.args[2] for call in writes)
 
 
-def test_existing_pr_and_empty_plan_do_not_write(
+def test_existing_pr_and_empty_plan_do_not_change_source(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     api = Mock(side_effect=[PUBLIC, [{"html_url": "existing"}], PUBLIC, []])
     monkeypatch.setattr(fleet, "github_api", api)
+    provision = Mock()
+    monkeypatch.setattr(fleet, "provision_provider_key", provision)
     plan: dict[str, Any] = {"repository": PUBLIC["full_name"], "files": {}}
     assert fleet.publish(plan) == "existing"
     assert fleet.publish(plan) is None
+    provision.assert_called_once_with(PUBLIC["full_name"])
     assert all(len(call.args) == 1 for call in api.call_args_list)
 
 
@@ -321,6 +351,8 @@ def test_controller_limits_write_credentials_to_trusted_public_targets() -> None
     steps = job["steps"]
     app = next(step for step in steps if step.get("id") == "app")
     assert app["with"]["repositories"] == "${{ steps.targets.outputs.repositories }}"
+    assert "secrets.ENROLLMENT_APP_ID" in app["with"]["app-id"]
+    assert "secrets.ENROLLMENT_APP_KEY" in app["with"]["private-key"]
     assert "steps.targets.outputs.repositories != ''" in app["if"]
     assert "permission-administration" not in app["with"]
     key_steps = [step for step in steps if "AI_API_KEY" in step.get("env", {})]

@@ -45,8 +45,8 @@ jobs:
       - name: Check automation App setup
         id: available
         env:
-          BOT_ID: ${{ secrets.BOT_APP_ID }}
-          BOT_KEY: ${{ secrets.BOT_APP_KEY }}
+          BOT_ID: ${{ secrets.ENROLLMENT_APP_ID }}
+          BOT_KEY: ${{ secrets.ENROLLMENT_APP_KEY }}
         run: |
           ready=false
           if [ -n "$BOT_ID" ] && [ -n "$BOT_KEY" ]; then ready=true; fi
@@ -58,8 +58,8 @@ jobs:
         if: steps.available.outputs.ready == 'true' && steps.targets.outputs.repositories != ''
         id: app
         with:
-          app-id: ${{ secrets.BOT_APP_ID }}
-          private-key: ${{ secrets.BOT_APP_KEY }}
+          app-id: ${{ secrets.ENROLLMENT_APP_ID }}
+          private-key: ${{ secrets.ENROLLMENT_APP_KEY }}
           owner: Abdel-Abdelaal
           repositories: ${{ steps.targets.outputs.repositories }}
           permission-contents: write

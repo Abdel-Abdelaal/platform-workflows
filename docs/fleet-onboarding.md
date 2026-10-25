@@ -5,6 +5,9 @@ public, non-fork, non-archived repositories owned by Abdel-Abdelaal and compares
 them with the reviewed starter at the immutable `BASELINE_COMMIT` in the tool.
 The public dashboard independently discovers those repositories; discovery alone
 does not install any engineering processes.
+Copied platform callers are normalized to the tool's explicitly reviewed
+`PLATFORM_COMMIT`/`PLATFORM_RELEASE`; third-party action pins are preserved. These
+two immutable source commits appear in every public enrollment plan.
 
 The daily default-branch `fleet-enrollment.yml` controller plans with read-only
 permissions. Without App credentials it uploads a public plan and explicitly
@@ -48,9 +51,18 @@ The exact owner-only App permission proposal is
 [GitHub App manifest format](https://github.com/github/docs/blob/main/content/apps/sharing-github-apps/registering-a-github-app-from-a-manifest.md).
 It requests no administration, public transparency, webhook, model or billing
 access. App creation/installation requires the owner's review of these permissions.
+An installation on selected public repositories requires explicitly adding each
+future repository before its enrollment can write. An all-repositories
+installation includes future repositories, but also grants the App access to
+private repositories at the installation level. Although this controller limits
+each short-lived token to discovered public names, the App's private key can mint
+other installation tokens. That broader access must be disclosed and approved;
+it is not implicitly granted by the existence of this workflow or manifest.
 
-Store the App ID/private key only in the controller repository's `BOT_APP_ID` and
-`BOT_APP_KEY` secrets. Before minting its write token, the eventual controller
+Store the App ID/private key only in the controller repository's `ENROLLMENT_APP_ID`
+and `ENROLLMENT_APP_KEY` secrets. These are separate from maintenance `BOT_APP_*`
+secrets, so enrollment setup does not activate unrelated workflows. Before minting
+its write token, the controller
 discovers and scopes the token to eligible public repository names; do not
 place private installation metadata in a public artifact or log. Restrict the
 controller to trusted default-branch schedule/dispatch events. The tool rechecks

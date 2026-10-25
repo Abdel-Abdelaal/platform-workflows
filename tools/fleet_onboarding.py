@@ -14,7 +14,9 @@ from tools.ai_telemetry import mapping
 from tools.github_api import github_api
 
 OWNER = "Abdel-Abdelaal"
-BASELINE_COMMIT = "b0589a8d22fdb96e3424d4c98d0ac9b4f9f9f372"
+BASELINE_COMMIT = "1cc2b3cc9ff39cf28c6d6cdb4c2a69dc7484ebf2"
+PLATFORM_COMMIT = "7b7bea4e50c6ee1b1dcf0d318e4504655678b0b8"
+PLATFORM_RELEASE = "v1.9.1"
 BRANCH = "ci/fleet-onboarding"
 PAGE_SIZE = 100
 MAX_FILE_BYTES = 100_000
@@ -106,7 +108,15 @@ def templates() -> dict[str, str]:
         if len(text.encode()) > MAX_FILE_BYTES:
             message = "starter file exceeds size bound"
             raise ValueError(message)
-        result[name] = text
+        own_workflow = (
+            rf"({OWNER}/platform-workflows/\.github/workflows/[^@\s]+)"
+            r"@[a-f0-9]{40}[^\r\n]*"
+        )
+        result[name] = re.sub(
+            own_workflow,
+            rf"\g<1>@{PLATFORM_COMMIT} # {PLATFORM_RELEASE}",
+            text,
+        )
     return result
 
 
@@ -133,10 +143,7 @@ def proposal(repository: dict[str, Any], starter: dict[str, str]) -> dict[str, A
         "default_branch_protected": reference.get("protected"),
         "blocking_findings": []
         if reference.get("protected") is True
-        else [
-            "Default branch protection is missing or unverified; "
-            "enrollment is incomplete until reviewed governance setup."
-        ],
+        else ["Default branch protection is missing or unverified."],
     }
     entries = objects(tracked["tree"])
     existing = {item["path"] for item in entries}
@@ -230,6 +237,7 @@ def publish(plan: dict[str, Any]) -> str | None:
         return str(opened[0]["html_url"])
     files = plan["files"]
     if not files:
+        provision_provider_key(repository)
         return None
     if set(files) - set(FILES):
         message = "proposal contains files outside the reviewed allowlist"
@@ -317,7 +325,13 @@ def main() -> None:
             )
         args.output.write_text(
             json.dumps(
-                {"baseline_commit": BASELINE_COMMIT, "repositories": outcomes}, indent=2
+                {
+                    "baseline_commit": BASELINE_COMMIT,
+                    "platform_commit": PLATFORM_COMMIT,
+                    "platform_release": PLATFORM_RELEASE,
+                    "repositories": outcomes,
+                },
+                indent=2,
             ),
             encoding="utf-8",
         )
