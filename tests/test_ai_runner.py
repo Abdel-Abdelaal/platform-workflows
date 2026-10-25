@@ -147,3 +147,49 @@ def test_context_pipe_reaches_eof_in_a_real_child(
     context = "untrusted data " * 10000
     result = ai_runner.analyze(context, "trusted prompt", "key")
     assert int(result.summary) > len(context)
+
+
+@pytest.mark.parametrize("thinking", [True, False])
+def test_whole_repository_mode_disables_thinking_and_requests_json(
+    tmp_path: Path, thinking: bool
+) -> None:
+    environment = ai_runner.isolated_environment(tmp_path, "key", thinking=thinking)
+    config = json.loads(environment["OPENCODE_CONFIG_CONTENT"])
+    options = config["provider"]["mimo"]["models"]["mimo-v2.6-flash"]["options"]
+    if thinking:
+        assert options == {}
+    else:
+        assert options == {
+            "thinking": {"type": "disabled"},
+            "response_format": {"type": "json_object"},
+        }
+
+
+def test_cli_forwards_the_thinking_choice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = tmp_path / "context.md"
+    prompt = tmp_path / "prompt.md"
+    context.write_text("context")
+    prompt.write_text("prompt")
+    output = tmp_path / "analysis.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tool",
+            "--context",
+            str(context),
+            "--prompt",
+            str(prompt),
+            "--output",
+            str(output),
+            "--thinking",
+            "disabled",
+        ],
+    )
+    monkeypatch.setenv("AI_API_KEY", "test-key")
+    analyze = Mock(return_value=Analysis(summary="valid"))
+    monkeypatch.setattr(ai_runner, "analyze", analyze)
+    ai_runner.main()
+    assert analyze.call_args.kwargs["thinking"] is False

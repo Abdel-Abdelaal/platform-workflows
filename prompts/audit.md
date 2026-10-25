@@ -6,6 +6,7 @@ and whether the documented controls match the implementation. Prioritize evidenc
 and practical fixes over adding tools or abstractions without need.
 
 Return only JSON: {"summary":"Markdown analysis with evidence.","comments":[],"patch":""}.
+Keep "comments" an empty array in this mode; every finding belongs in "summary".
 All findings are non-blocking. Do not claim enterprise readiness from a score alone.
 
 In summary include evidence, severity, specific file references, suggested fixes and an
