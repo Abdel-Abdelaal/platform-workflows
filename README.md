@@ -94,3 +94,15 @@ Every remote action and workflow is SHA-pinned, including our own releases.
 
 Managed callers pin release commit SHAs; Dependabot proposes reviewed updates.
 The `v1` tag remains available for discovery, while fleet execution is reproducible.
+
+## Reviewed maintenance workflows
+
+`conformance.yml` inspects tracked policy configuration as data using immutable,
+tested tooling; it never executes checked-out repository code. `baseline-sync.yml`
+prepares only allowlisted files and opens a normal PR on `bot/baseline-sync`.
+It skips explicitly until the automation App is configured. Because the managed
+baseline includes a Scorecard workflow, the narrowly repository-scoped token needs
+contents, pull-requests and workflows write permissions. No baseline job can merge.
+AI workflows use the same reviewed tooling commit, including bounded JSON retries
+and sanitized failure handling. Consumers must upgrade their pinned workflow SHA
+to obtain these changes; a moving tag does not change an existing pinned caller.

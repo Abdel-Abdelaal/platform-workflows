@@ -75,7 +75,7 @@ jobs:
         if: steps.available.outputs.ready == 'true'
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
           path: platform
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -157,7 +157,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -194,7 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -235,7 +235,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -298,7 +298,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Abdel-Abdelaal/platform-workflows
-          ref: ef111467e74cd720628f0c80413672f148488e4b # reviewed tooling from PR 7
+          ref: 252157780a2ad6f6444c265338e1bc2e23e85e81 # reviewed tooling from PR 11
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
