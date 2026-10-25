@@ -14,7 +14,47 @@ MAX_FILE_CHARACTERS = 20000
 MAX_GLOSSARY_CHARACTERS = 10000
 MAX_OMISSION_NAMES = 20
 MAX_OMISSION_NAME_CHARACTERS = 120
-ALLOWED_SUFFIXES = {".py", ".tf", ".md", ".toml", ".yml", ".yaml", ".json"}
+CODE_SUFFIXES = {
+    ".py",
+    ".tf",
+    ".kt",
+    ".kts",
+    ".java",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".go",
+    ".rs",
+    ".sh",
+    ".ps1",
+    ".sql",
+}
+ALLOWED_SUFFIXES = CODE_SUFFIXES | {
+    ".md",
+    ".toml",
+    ".yml",
+    ".yaml",
+    ".json",
+    ".xml",
+    ".html",
+    ".css",
+}
+EXCLUDED_DIRECTORIES = {
+    ".git",
+    ".opencode",
+    "node_modules",
+    ".venv",
+    ".gradle",
+    ".next",
+    "build",
+    "dist",
+    "target",
+    "coverage",
+    "__pycache__",
+}
 EXCLUDED_NAMES = {
     "uv.lock",
     "package-lock.json",
@@ -28,7 +68,9 @@ def source_priority(name: str) -> tuple[int, str]:
     """Keep implementation and tests ahead of generated/configuration bulk."""
     path = Path(name)
     category = path.parts[0] if path.parts else ""
-    if category in {"src", "tools", "modules", "standards"} or path.suffix == ".tf":
+    if category in {"src", "tools", "modules", "standards", "app", "web-chat"}:
+        return 0, name
+    if path.suffix in CODE_SUFFIXES and category not in {"tests", "test"}:
         return 0, name
     if category == "tests" or name in {"README.md", "pyproject.toml", "repos.yaml"}:
         return 1, name
@@ -44,9 +86,7 @@ def selected_file(repository: Path, name: str, prefix: str) -> Path | None:
         return None
     if path.name in EXCLUDED_NAMES or path.name.startswith(".env"):
         return None
-    if any(
-        part in {".git", ".opencode", "node_modules", ".venv"} for part in path.parts
-    ):
+    if any(part in EXCLUDED_DIRECTORIES for part in Path(name).parts):
         return None
     try:
         return validate_path(repository, name)

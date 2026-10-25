@@ -14,6 +14,9 @@ fork PRs and Dependabot PRs never receive the key. Local shells use the same nam
 
 In GitHub Actions, a checksum-verified Gitleaks binary scans the source before
 the provider key is supplied. Local/server operators must scan the checkout first.
+Context includes Python/Terraform, Android Kotlin/Java, JavaScript/TypeScript,
+Go/Rust, shell and SQL implementation plus text configuration and UI resources.
+Generated build and dependency directories are excluded even when tracked.
 Context prioritizes implementation/tests and attaches only standards/*.md from
 the handbook, rather than its baseline/workflow bulk. File reads and metadata are
 bounded; omitted/truncated files and partial diffs are explicit so absence cannot

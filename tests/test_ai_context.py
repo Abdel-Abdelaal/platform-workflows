@@ -55,6 +55,48 @@ def test_snapshot_obeys_context_budget(
     assert "CONTEXT BOUNDS" in result
 
 
+def test_multilanguage_source_precedes_bulk_and_ignores_generated_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {
+        "app/src/Main.kt": "kotlin implementation",
+        "web-chat/src/view.tsx": "typescript implementation",
+        "pipeline/extract.py": "python implementation",
+        "app/build/generated/Generated.java": "generated content",
+        "web-chat/node_modules/pkg/index.js": "dependency content",
+        "target/generated.rs": "compiled content",
+        "docs/archive.md": "documentation bulk" * 100,
+    }
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    monkeypatch.setattr(
+        ai_context.subprocess,
+        "run",
+        Mock(return_value=CompletedProcess([], 0, "\0".join(files))),
+    )
+    monkeypatch.setattr(ai_context, "MAX_CONTEXT_CHARACTERS", 400)
+    manifest: list[dict[str, str]] = []
+    text = ai_context.snapshot(tmp_path, manifest=manifest)
+    for language in ("kotlin", "typescript", "python"):
+        assert f"{language} implementation" in text
+    assert "generated content" not in text
+    assert "dependency content" not in text
+    assert "compiled content" not in text
+    assert any(
+        item["path"] == "docs/archive.md" and item["status"] == "omitted"
+        for item in manifest
+    )
+
+
+@pytest.mark.parametrize("name", ["src/.env.ts", ".opencode/plugin.ts", "../escape.ts"])
+def test_new_languages_preserve_path_and_configuration_boundaries(
+    tmp_path: Path, name: str
+) -> None:
+    assert ai_context.selected_file(tmp_path, name, "") is None
+
+
 def test_code_priority_and_smaller_files_survive_budget(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
