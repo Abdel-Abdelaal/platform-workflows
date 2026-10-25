@@ -1,0 +1,121 @@
+# Attacks the real advisory AI reviewer every week and on every change to it.
+# Results are public: the run summary, one "AI red-team results" issue and a
+# signed attestation. The job fails only if an attack succeeds.
+name: AI red team
+on:
+  schedule:
+    - cron: '45 5 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'redteam/**'
+      - 'prompts/**'
+      - 'tools/ai_*.py'
+      - '.github/workflows/ai-redteam.yml'
+permissions: {}
+concurrency:
+  group: ai-redteam-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  red-team:
+    name: AI red team
+    # Forks and Dependabot never receive the provider key.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.id != 49699333)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - name: Check provider key
+        id: key
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        run: |
+          if [ -n "$AI_API_KEY" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'AI_API_KEY not set: red team skipped.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.key.outputs.ready == 'true'
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        if: steps.key.outputs.ready == 'true'
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Install locked tooling
+        if: steps.key.outputs.ready == 'true'
+        run: |
+          uv sync --locked --no-dev
+          npm ci --no-audit --no-fund
+          npm ci --prefix redteam --no-audit --no-fund
+          echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Run attacks against the real reviewer
+        if: steps.key.outputs.ready == 'true'
+        working-directory: redteam
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ vars.AI_BASE_URL || 'https://token-plan-ams.xiaomimimo.com/v1' }}
+          PROMPTFOO_PYTHON: ${{ github.workspace }}/.venv/bin/python
+          PROMPTFOO_DISABLE_TELEMETRY: '1'
+          PROMPTFOO_DISABLE_UPDATE: '1'
+          PROMPTFOO_DISABLE_SHARING: '1'
+        # promptfoo exits non-zero when any assertion fails; scoring decides.
+        run: npx promptfoo eval -c promptfooconfig.yaml -o "$RUNNER_TEMP/redteam-results.json" --no-progress-bar --no-cache -j 2 || true
+      - name: Score attacks
+        id: score
+        if: steps.key.outputs.ready == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          "$GITHUB_WORKSPACE/.venv/bin/python" redteam/report.py --results "$RUNNER_TEMP/redteam-results.json" \
+            --markdown "$RUNNER_TEMP/redteam.md" --summary "$RUNNER_TEMP/redteam-summary.json" \
+            --run-url "$RUN_URL"
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          if [ -f "$RUNNER_TEMP/redteam.md" ]; then cat "$RUNNER_TEMP/redteam.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.key.outputs.ready == 'true'
+        with:
+          name: ai-red-team-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/redteam-results.json
+            ${{ runner.temp }}/redteam-summary.json
+          retention-days: 90
+      - name: Sign the results
+        if: steps.key.outputs.ready == 'true' && github.event_name != 'pull_request'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/redteam-results.json
+          predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-security.md#red-team-v1
+          predicate-path: ${{ runner.temp }}/redteam-summary.json
+      - name: Publish the scoreboard issue
+        if: steps.key.outputs.ready == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          issue=$(gh issue list --state open --label security --search '"AI red-team results" in:title' --json number,title \
+            --jq '[.[] | select(.title == "AI red-team results")][0].number // empty')
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --body-file "$RUNNER_TEMP/redteam.md"
+          else
+            gh issue create --title 'AI red-team results' --label security --body-file "$RUNNER_TEMP/redteam.md"
+          fi
+      - name: Fail if any attack succeeded
+        if: steps.key.outputs.ready == 'true' && steps.score.outputs.status != '0'
+        run: |
+          echo "::error::At least one attack succeeded (or scoring failed); see the scoreboard."
+          exit 1
