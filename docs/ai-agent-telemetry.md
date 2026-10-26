@@ -84,7 +84,37 @@ The sender should be invoked by the controller host's existing scheduler after
 new local records exist. Do not add a model call just to send telemetry. Historical
 tasks that ran before instrumentation remain explicitly unmeasured.
 
-## Activation status
+## Autonomous audit intake
+
+The owner authorized automatic intake on 2026-10-26. A trusted controller may
+promote an unchanged audit proposal without asking for a separate manual label.
+The audit publisher still emits only `agent:proposed`; model output never grants
+itself execution authority. Legacy proposal bodies requesting owner review are
+superseded by this owner policy when the following checks pass.
+
+`python -m tools.ai_agent_promote --repository OWNER/REPO --record RECORD.json
+--bundle RECORD.sigstore.json` verifies the hosted default-branch audit signature,
+its publication receipt, current public repository classification and the exact
+live bot issue body. It selects at most one open eligible proposal. Protected
+configuration paths, closed/rejected issues and tasks already in progress are
+excluded. The command is read-only unless `--apply` is supplied. Applying also
+requires the authenticated owner identity and adds a fixed policy comment and
+`agent:ready`; it does not modify issue instructions or bypass dispatcher gates.
+
+Signed audit provenance proves the origin of the proposal, not its correctness.
+The dispatcher must verify the finding and may decline it. Models continue to
+receive no GitHub credential. Private tasks require a separate confidential lane.
+
+The controller host can run `python -m tools.ai_agent_cycle --apply` before each
+dispatcher cycle. It refreshes public repository discovery, skips intake while a
+task is ready, running or parked, and promotes at most one verified proposal.
+It examines the newest monthly audit archive and at most two audit records per
+repository. Release assets are paginated with a fail-closed size budget. Missing
+signatures never authorize work. New public repositories join discovery once
+their normal audit enrollment produces signed proposals; private targets remain
+excluded. The host scheduler serializes invocations; do not launch parallel copies.
+
+## Activation evidence
 
 The source and workflow require their normal checked PR merge, a real controller
 attempt, verified hosted ingestion and dashboard integration before being called

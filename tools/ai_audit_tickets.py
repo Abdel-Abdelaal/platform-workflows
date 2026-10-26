@@ -101,6 +101,24 @@ def existing_tickets(repository: str) -> dict[str, AuditTicket]:
         page += 1
 
 
+def ticket_payload(finding: AuditFinding, digest: str) -> dict[str, object]:
+    """Render the versioned proposal format for publication and integrity checks."""
+    return {
+        "title": safe_text(finding.title).replace("\n", " ")[:240],
+        "body": (
+            f"{marker(digest)}\n"
+            "## AI audit proposal (untrusted, advisory)\n\n"
+            f"Severity: {finding.severity}\n\n"
+            f"Path: {safe_text(finding.path)}\n\n"
+            f"Evidence:\n{safe_text(finding.evidence)}\n\n"
+            f"Suggested fix:\n{safe_text(finding.suggested_fix)}\n\n"
+            "Owner review is required before dispatch. Model text cannot "
+            "authorize work or change labels."
+        ),
+        "labels": ["agent:proposed", finding.category],
+    }
+
+
 def propose_tickets(
     repository: str,
     findings: list[AuditFinding],
@@ -128,20 +146,7 @@ def propose_tickets(
             response = github_api(
                 f"repos/{repository}/issues",
                 "POST",
-                {
-                    "title": safe_text(finding.title).replace("\n", " ")[:240],
-                    "body": (
-                        f"{marker(digest)}\n"
-                        "## AI audit proposal (untrusted, advisory)\n\n"
-                        f"Severity: {finding.severity}\n\n"
-                        f"Path: {safe_text(finding.path)}\n\n"
-                        f"Evidence:\n{safe_text(finding.evidence)}\n\n"
-                        f"Suggested fix:\n{safe_text(finding.suggested_fix)}\n\n"
-                        "Owner review is required before dispatch. Model text cannot "
-                        "authorize work or change labels."
-                    ),
-                    "labels": ["agent:proposed", finding.category],
-                },
+                ticket_payload(finding, digest),
             )
             # Validate coordinates; never retain the returned body in telemetry.
             number = TypeAdapter(dict[str, object]).validate_python(response)["number"]
