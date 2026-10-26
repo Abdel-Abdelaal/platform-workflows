@@ -16,6 +16,16 @@ by an explicit allowlist. Unknown usage remains null; missing counters are not
 zero. Provider-reported cost is an estimate, not a billing receipt. Full prompts,
 source context and full outputs are not retained by this producer. An excerpt
 is at most 2,000 characters; the original hash/length describes the full text.
+The producer may omit an excerpt entirely when no trusted scanner is configured.
+Null excerpts retain their `excerpt_status` and `excerpt_truncated` fields, along
+with the producer's `controller_revision` and schema version. Missing payloads
+are evidence gaps, not empty model responses.
+
+A trusted scanner hook can invoke `python -m tools.ai_agent_excerpt` from the
+reviewed checkout. It reads bounded plain-text stdin, requires the verified binary
+in `AI_OUTPUT_SECRET_SCANNER`, and emits only scrubbed text on stdout. A failure
+exits nonzero without raw diagnostics; the producer must then omit the excerpt.
+The scanner hook is trusted controller configuration, never a model-selected command.
 
 ## Trust and confidentiality
 
