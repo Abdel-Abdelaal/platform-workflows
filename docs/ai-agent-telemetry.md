@@ -84,8 +84,6 @@ The sender should be invoked by the controller host's existing scheduler after
 new local records exist. Do not add a model call just to send telemetry. Historical
 tasks that ran before instrumentation remain explicitly unmeasured.
 
-## Activation status
-
 ## Autonomous audit intake
 
 The owner authorized automatic intake on 2026-10-26. A trusted controller may
@@ -106,6 +104,15 @@ requires the authenticated owner identity and adds a fixed policy comment and
 Signed audit provenance proves the origin of the proposal, not its correctness.
 The dispatcher must verify the finding and may decline it. Models continue to
 receive no GitHub credential. Private tasks require a separate confidential lane.
+
+The controller host can run `python -m tools.ai_agent_cycle --apply` before each
+dispatcher cycle. It refreshes public repository discovery, skips intake while a
+task is ready, running or parked, and promotes at most one verified proposal.
+It examines the newest monthly audit archive and at most two audit records per
+repository. Release assets are paginated with a fail-closed size budget. Missing
+signatures never authorize work. New public repositories join discovery once
+their normal audit enrollment produces signed proposals; private targets remain
+excluded. The host scheduler serializes invocations; do not launch parallel copies.
 
 ## Activation evidence
 
