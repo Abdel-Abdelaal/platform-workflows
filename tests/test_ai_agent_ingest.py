@@ -1,6 +1,7 @@
 """Agent ingestion privacy, redaction, provenance and delivery boundaries."""
 
 import hashlib
+import io
 import json
 import subprocess
 from pathlib import Path
@@ -11,6 +12,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from tools import ai_agent_excerpt as excerpt
 from tools import ai_agent_ingest as ingest
 from tools.ai_agent_schema import AgentAttempt, AgentEvidenceError, batch, canonical
 from tools.ai_output_scan import OutputScanError
@@ -72,6 +74,55 @@ def test_allowlist_drops_unknown_secrets_and_preserves_unknown_usage() -> None:
     assert data["usage"] is None
     assert data["available_usage"] is None
     assert "private" not in canonical(batch([record]))
+
+
+def test_producer_privacy_metadata_and_omitted_excerpt_are_preserved() -> None:
+    record = AgentAttempt.model_validate(
+        attempt(
+            schema_version=1,
+            controller_revision="a" * 40,
+            output_excerpt=None,
+            excerpt_status="omitted_no_scanner",
+            excerpt_truncated=True,
+        )
+    )
+    data = record.model_dump(by_alias=True)
+    assert data["output_excerpt"] is None
+    assert data["excerpt_status"] == "omitted_no_scanner"
+    assert data["excerpt_truncated"] is True
+    assert data["controller_revision"] == "a" * 40
+    assert AgentAttempt.model_validate(attempt(stage="error")).stage == "error"
+
+
+def test_excerpt_scrubber_requires_scanner_and_emits_only_clean_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(excerpt, "scanner_path", Mock(return_value=None))
+    with pytest.raises(OutputScanError):
+        excerpt.scrub("untrusted")
+    monkeypatch.setattr(excerpt, "scanner_path", Mock(return_value=Path("/scanner")))
+    scan = Mock(return_value=('{"excerpt":"[REDACTED SECRET]"}', 1))
+    monkeypatch.setattr(excerpt, "scan_events", scan)
+    assert excerpt.scrub("untrusted") == "[REDACTED SECRET]"
+    assert json.loads(scan.call_args.args[0]) == {"excerpt": "untrusted"}
+
+
+def test_excerpt_cli_bounds_stdin_and_withholds_failure_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(excerpt.sys, "stdin", io.TextIOWrapper(io.BytesIO(b"raw")))
+    monkeypatch.setattr(excerpt, "scrub", Mock(return_value="safe"))
+    excerpt.main()
+    assert capsys.readouterr().out == "safe"
+    monkeypatch.setattr(
+        excerpt.sys,
+        "stdin",
+        io.TextIOWrapper(io.BytesIO(b"x" * (excerpt.MAX_BYTES + 1))),
+    )
+    with pytest.raises(SystemExit) as error:
+        excerpt.main()
+    assert error.value.code == 1
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(
