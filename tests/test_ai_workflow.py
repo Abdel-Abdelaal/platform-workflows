@@ -3,6 +3,31 @@ from pathlib import Path
 import yaml
 
 
+def test_output_scan_is_verified_and_confined_to_the_analysis_step() -> None:
+    document = yaml.safe_load(Path(".github/workflows/ai.yml").read_text())
+    steps = document["jobs"]["analyze"]["steps"]
+    invoked = next(
+        step
+        for step in steps
+        if step.get("name") == "Analyze with tool-denied Flash model"
+    )
+    scanner = invoked["env"]["AI_OUTPUT_SECRET_SCANNER"]
+    assert scanner == "${{ runner.temp }}/gitleaks/gitleaks"
+    before = steps[: steps.index(invoked)]
+    assert any("sha256sum --check" in step.get("run", "") for step in before)
+    for job in document["jobs"].values():
+        for step in job.get("steps", []):
+            if step is not invoked:
+                assert "AI_OUTPUT_SECRET_SCANNER" not in step.get("env", {})
+
+
+def test_audit_publication_is_serialized_across_caller_refs() -> None:
+    document = yaml.safe_load(Path(".github/workflows/ai.yml").read_text())
+    concurrency = document["jobs"]["publish-audit"]["concurrency"]
+    assert concurrency["group"] == "ai-audit-publish-${{ github.repository }}"
+    assert concurrency["cancel-in-progress"] is False
+
+
 def test_signer_consumes_only_artifact_ids_from_trusted_producers() -> None:
     document = yaml.safe_load(
         Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
