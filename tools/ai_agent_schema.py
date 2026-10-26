@@ -30,6 +30,7 @@ Stage = Literal[
     "gate",
     "route",
     "publish",
+    "error",
 ]
 
 
@@ -42,6 +43,10 @@ class AgentAttempt(BaseModel):
 
     model_config = ConfigDict(strict=True, extra="ignore", populate_by_name=True)
     source_schema: Literal["agent-dispatcher.attempt/v1"] = Field(alias="schema")
+    schema_version: Literal[1] | None = None
+    controller_revision: str | None = Field(
+        default=None, pattern=r"^(?:[a-f0-9]{40}|unknown)$"
+    )
     record_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
     recorded_at: str = Field(max_length=40)
     repo: str = Field(pattern=r"^Abdel-Abdelaal/[A-Za-z0-9_.-]+$")
@@ -72,7 +77,14 @@ class AgentAttempt(BaseModel):
     available_usage: None = None
     output_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     output_chars: int | None = Field(default=None, ge=0)
-    output_excerpt: str = Field(default="", max_length=2000)
+    output_excerpt: str | None = Field(default=None, max_length=2000)
+    excerpt_status: (
+        Literal[
+            "empty", "omitted_no_scanner", "omitted_scanner_failed", "redacted", "clean"
+        ]
+        | None
+    ) = None
+    excerpt_truncated: bool | None = None
     gate_refusals: list[str] = Field(default_factory=list[str], max_length=20)
     files: int | list[str] | None = None
     lines: int | None = Field(default=None, ge=0)
