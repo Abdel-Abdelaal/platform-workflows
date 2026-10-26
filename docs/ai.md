@@ -69,9 +69,37 @@ is tracked by consumer PRs; a configured file is not evidence of a successful ru
 | Workflow | Purpose | Write capability |
 | --- | --- | --- |
 | `ai-review.yml` | PR diff review | separate publisher updates one summary and notice annotations |
-| `ai-audit.yml` | weekly whole-repo coding audit | separate publisher maintains one health issue |
+| `ai-audit.yml` | weekly whole-repo coding audit | health issue and bounded proposed tickets |
 | `ai-fix.yml` | one focused proposal from the health report | tested patch, then one draft App-authored PR |
 | `ai-standards-review.yml` | monthly handbook/current-doc comparison | standards-only draft PR |
+
+### Audit proposals
+
+Audits may return up to 20 structured findings alongside their summary. Each
+validated finding has a short title, category, stable rule, severity, relative
+file path, evidence and suggested fix. Legacy outputs without findings remain
+valid; the publisher does not guess tickets from prose. Schema validation does
+not establish that the model's claim is correct.
+
+The separate publisher creates at most five new issues per run, highest severity
+first, with exactly `agent:proposed` and one of `bug`, `security`, `documentation`
+or `task`. It never adds `agent:ready`. Abdel verifies a proposal and adds that
+label himself before agent-dispatcher can run. Model instructions in issue text
+have no authority; HTML, Markdown and mentions are neutralized in audit prose.
+
+A versioned SHA-256 marker identifies repository, category/rule, relative path
+and normalized title. The publisher paginates open and closed issues and only
+accepts markers at the start of its own GitHub Actions bot issues. It preserves
+every closed proposal, including not-planned/wontfix, without reopening it.
+Changing a title's meaning or rule can create a new identity; deduplication is
+deterministic rather than semantic. Repeated findings within a run count once.
+
+The health issue retains every finding with a ticket reference or a cap deferral;
+bounded excerpts keep it within GitHub's body limit. Publication receipts retain
+ticket numbers, fingerprints and created/existing/closed/deferred decisions,
+including successful writes before a later failure. No additional secret or
+dispatcher permission is needed. Hosted activation requires the separately
+reviewed executable tooling pin; source code alone does not activate proposals.
 
 Every caller pins the workflow release commit. The workflow itself pins a separate,
 reviewed tooling commit containing its scripts, prompts and lockfiles; callers cannot
