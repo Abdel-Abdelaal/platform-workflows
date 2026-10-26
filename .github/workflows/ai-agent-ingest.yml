@@ -1,0 +1,79 @@
+name: Sign controller agent evidence
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        required: true
+      asset_name:
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: agent-ingest-${{ inputs.asset_name }}
+  cancel-in-progress: false
+jobs:
+  ingest:
+    if: github.repository == 'Abdel-Abdelaal/platform-workflows' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Install checksum-verified scanner
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar --extract --gzip --file "$RUNNER_TEMP/gitleaks.tar.gz" --directory "$RUNNER_TEMP/gitleaks"
+      - name: Validate public targets and scrub controller evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_ASSET: ${{ inputs.asset_name }}
+          AI_OUTPUT_SECRET_SCANNER: ${{ runner.temp }}/gitleaks/gitleaks
+        run: uv run --locked --no-dev python -m tools.ai_agent_ingest ingest --tag "$INPUT_TAG" --asset-name "$INPUT_ASSET" --output "$RUNNER_TEMP/agent-batch.json"
+      - name: Scan complete publication subject and predicate
+        run: |
+          mkdir -p "$RUNNER_TEMP/agent-final-scan"
+          cp "$RUNNER_TEMP/agent-batch.json" "$RUNNER_TEMP/predicate.json" "$RUNNER_TEMP/agent-final-scan/"
+          "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/agent-final-scan" --redact --no-banner --exit-code 1
+      - name: Attest hosted ingestion (not local agent execution)
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/agent-batch.json
+          predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/ai-agent-telemetry.md#agent-batch-v1
+          predicate-path: ${{ runner.temp }}/predicate.json
+          create-storage-record: false
+      - name: Archive immutable batch and signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: uv run --locked --no-dev python -m tools.ai_agent_ingest archive --output "$RUNNER_TEMP/agent-batch.json" --bundle "$BUNDLE" --directory "$RUNNER_TEMP/agent-archive"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-agent-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/agent-archive/
+          retention-days: 90
+  report:
+    needs: ingest
+    if: failure()
+    uses: ./.github/workflows/report-failure.yml
+    permissions:
+      issues: write
+    with:
+      title: Agent telemetry ingestion failed
