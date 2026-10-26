@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.10.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.9.1...v1.10.0) (2026-10-26)
+
+### Features
+
+* publish validated weekly audit findings as deduplicated `agent:proposed` tickets,
+  with a five-new-ticket cap, closed-issue preservation and signed publication receipts ([#59](https://github.com/Abdel-Abdelaal/platform-workflows/pull/59))
+* scan decoded model outputs using the checksum-verified secret scanner before
+  retention and validation; activate immutable reviewed tooling and serialize audit publication ([#58](https://github.com/Abdel-Abdelaal/platform-workflows/pull/58), [#60](https://github.com/Abdel-Abdelaal/platform-workflows/pull/60))
+* enroll public repositories with scoped installation tokens, missing-only provider
+  credentials and immutable starter callers ([#47](https://github.com/Abdel-Abdelaal/platform-workflows/pull/47))
+* add bounded controller-attempt schema, public-only scanned sender and hosted
+  Sigstore ingestion infrastructure; live producer activation and signed dashboard
+  proof are tracked separately and are not implied by this release ([#62](https://github.com/Abdel-Abdelaal/platform-workflows/pull/62))
+
+### Bug Fixes
+
+* support the actual default branch in baseline/stale maintenance and pin the
+  PR-Agent runtime by image digest ([#48](https://github.com/Abdel-Abdelaal/platform-workflows/pull/48))
+* remove the deprecated Pyink validator ([#57](https://github.com/Abdel-Abdelaal/platform-workflows/pull/57))
+
+### Validation
+
+Real shortlink review and audit runs verified the output scanner, durable signed
+records and five proposed tickets. Research master baseline and stale dry-run
+prove default-branch handling. Enrollment's hosted scoped-App run verified public
+classification and missing-only secret provisioning. Agent execution remains
+owner-approved; this release never adds `agent:ready` or approves/merges AI work.
+
 ## [1.9.1](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.9.0...v1.9.1) (2026-10-25)
 
 
