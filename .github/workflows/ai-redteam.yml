@@ -23,7 +23,7 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.user.id != 49699333)
+        github.event.pull_request.user.id != 49699333)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
