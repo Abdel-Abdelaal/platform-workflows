@@ -147,7 +147,7 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: unreleased-audit-proposals
+          PLATFORM_RELEASE: v1.10.0
           TOOLING_COMMIT: 542725492f2a90e73be2f50036ffc3b7c43ae777
         run: |
           prompt="$MODE"
@@ -485,7 +485,7 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: unreleased-audit-proposals
+          PLATFORM_RELEASE: v1.10.0
           TOOLING_COMMIT: 542725492f2a90e73be2f50036ffc3b7c43ae777
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
