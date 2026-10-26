@@ -24,8 +24,8 @@ jobs:
     if: >-
       (github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       (inputs.mode == 'review' && github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.user.id != 49699333)
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.id != 49699333)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
@@ -441,7 +441,7 @@ jobs:
     if: >-
       always() && !cancelled() &&
       ((github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
-       (github.event_name == 'pull_request' &&
+        (github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.id != 49699333))
     runs-on: ubuntu-latest
