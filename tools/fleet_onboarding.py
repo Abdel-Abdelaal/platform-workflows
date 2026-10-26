@@ -14,9 +14,9 @@ from tools.ai_telemetry import mapping
 from tools.github_api import github_api
 
 OWNER = "Abdel-Abdelaal"
-BASELINE_COMMIT = "1cc2b3cc9ff39cf28c6d6cdb4c2a69dc7484ebf2"
-PLATFORM_COMMIT = "7b7bea4e50c6ee1b1dcf0d318e4504655678b0b8"
-PLATFORM_RELEASE = "v1.9.1"
+BASELINE_COMMIT = "2db3f67b69f1282c9cb377d8a30ae2a9948898c0"
+PLATFORM_COMMIT = "40b37ce9647cc6cde2adc3d3d1acfc0aa06f92c9"
+PLATFORM_RELEASE = "v1.10.0"
 BRANCH = "ci/fleet-onboarding"
 PAGE_SIZE = 100
 MAX_FILE_BYTES = 100_000
