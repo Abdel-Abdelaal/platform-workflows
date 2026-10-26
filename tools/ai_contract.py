@@ -3,8 +3,9 @@
 import json
 import re
 from pathlib import PurePosixPath
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_PATCH_LINES = 400
 MAX_PATCH_FILES = 5
@@ -20,6 +21,33 @@ class InlineFinding(BaseModel):
     body: str = Field(min_length=1, max_length=3000)
 
 
+class AuditFinding(BaseModel):
+    """Bounded advisory ticket data; never permission to execute a task."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    title: str = Field(min_length=1, max_length=160)
+    category: Literal["bug", "security", "documentation", "task"]
+    rule: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    path: str = Field(min_length=1, max_length=300)
+    evidence: str = Field(min_length=1, max_length=3000)
+    suggested_fix: str = Field(min_length=1, max_length=3000)
+
+    @field_validator("path")
+    @classmethod
+    def relative_path(cls, value: str) -> str:
+        """Accept only ordinary, repository-relative POSIX paths."""
+        path = PurePosixPath(value)
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or not re.fullmatch(r"[A-Za-z0-9_./-]+", value)
+            or str(path) != value
+        ):
+            raise ValueError
+        return value
+
+
 class Analysis(BaseModel):
     """The bounded contract for every model response."""
 
@@ -29,6 +57,9 @@ class Analysis(BaseModel):
         default_factory=list[InlineFinding], max_length=10
     )
     patch: str = Field(default="", max_length=20000)
+    findings: list[AuditFinding] = Field(
+        default_factory=list[AuditFinding], max_length=20
+    )
 
 
 class UnsafePatchError(Exception):

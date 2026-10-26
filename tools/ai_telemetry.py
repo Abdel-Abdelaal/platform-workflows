@@ -185,6 +185,7 @@ def complete(record: dict[str, Any], analysis: Analysis, diff: str) -> None:
         "eligible": len(findings),
         "dropped": len(analysis.comments) - len(findings),
         "eligible_locations": [{"path": f.path, "line": f.line} for f in findings],
+        "audit_proposed": len(analysis.findings),
     }
     patch: dict[str, Any] = {"status": "not_proposed", "accepted_paths": []}
     if analysis.patch:
