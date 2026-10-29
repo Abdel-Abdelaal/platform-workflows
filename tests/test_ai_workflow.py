@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
+from typing import Any
 
+import pytest
 import yaml
 
 
@@ -168,22 +170,74 @@ def test_all_reusable_ai_wrappers_pass_the_private_key_explicitly() -> None:
         )
 
 
-def test_all_ai_stages_and_evidence_use_one_immutable_tooling_revision() -> None:
-    document = yaml.safe_load(
-        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
-    )
+def assert_tooling_revision(document: dict[str, Any]) -> None:
     pins: set[str] = set()
     recorded: set[str] = set()
     for job in document["jobs"].values():
+        inherited = {**document.get("env", {}), **job.get("env", {})}
         for step in job.get("steps", []):
             options = step.get("with", {})
             if options.get("repository") == "Abdel-Abdelaal/platform-workflows":
-                assert step["uses"].startswith("actions/checkout@")
+                assert re.fullmatch(r"actions/checkout@[a-f0-9]{40}", step["uses"])
                 assert options["persist-credentials"] is False
                 assert re.fullmatch(r"[a-f0-9]{40}", options["ref"])
                 pins.add(options["ref"])
-            revision = step.get("env", {}).get("TOOLING_COMMIT")
+            revision = {**inherited, **step.get("env", {})}.get("TOOLING_COMMIT")
             if revision is not None:
                 recorded.add(revision)
     assert len(pins) == 1
     assert recorded == pins
+
+
+def test_all_ai_stages_and_evidence_use_one_immutable_tooling_revision() -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
+    )
+    assert_tooling_revision(document)
+
+
+@pytest.mark.parametrize("scope", ["workflow", "job"])
+@pytest.mark.parametrize("stale", [False, True])
+def test_tooling_revision_checks_inherited_evidence(scope: str, stale: bool) -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
+    )
+    producer = next(
+        step
+        for step in document["jobs"]["analyze"]["steps"]
+        if "TOOLING_COMMIT" in step.get("env", {})
+    )
+    revision = producer["env"].pop("TOOLING_COMMIT")
+    target = document if scope == "workflow" else document["jobs"]["analyze"]
+    target["env"] = {"TOOLING_COMMIT": "a" * 40 if stale else revision}
+    if stale:
+        with pytest.raises(AssertionError):
+            assert_tooling_revision(document)
+    else:
+        assert_tooling_revision(document)
+
+
+@pytest.mark.parametrize("mutation", ["action", "ref", "evidence", "credentials"])
+def test_tooling_revision_rejects_broken_workflow_contracts(mutation: str) -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
+    )
+    steps = document["jobs"]["analyze"]["steps"]
+    checkout = next(
+        step
+        for step in steps
+        if step.get("with", {}).get("repository") == "Abdel-Abdelaal/platform-workflows"
+    )
+    if mutation == "action":
+        checkout["uses"] = "actions/checkout@v7"
+    elif mutation == "ref":
+        checkout["with"]["ref"] = "a" * 40
+    elif mutation == "credentials":
+        checkout["with"]["persist-credentials"] = True
+    else:
+        producer = next(
+            step for step in steps if "TOOLING_COMMIT" in step.get("env", {})
+        )
+        producer["env"]["TOOLING_COMMIT"] = "a" * 40
+    with pytest.raises(AssertionError):
+        assert_tooling_revision(document)
