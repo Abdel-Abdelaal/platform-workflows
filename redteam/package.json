@@ -4,6 +4,6 @@
   "private": true,
   "description": "Locked promptfoo for the AI red-team suite; installed only by the red-team job",
   "devDependencies": {
-    "promptfoo": "0.124.1"
+    "promptfoo": "0.125.1"
   }
 }
