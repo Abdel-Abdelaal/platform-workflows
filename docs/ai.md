@@ -66,6 +66,12 @@ is tracked by consumer PRs; a configured file is not evidence of a successful ru
 
 ### Evidence-driven retries
 
+The reusable workflow pins the reviewed implementation from platform PR #78 at
+`930b3361ee26aec1b79572f6bed05762874542ba`. Analysis, validation, publication and
+telemetry use that same tooling revision. Existing callers need an explicit
+workflow-pin update before this behavior is active; merging source alone does
+not update a pinned consumer.
+
 The runner retains the configured thinking setting, completion budget and
 per-attempt deadline. It does not silently disable reasoning to obtain an answer.
 A completed provider step reporting `length` with no answer text is recorded as
