@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -165,3 +166,24 @@ def test_all_reusable_ai_wrappers_pass_the_private_key_explicitly() -> None:
             document["jobs"]["ai"]["secrets"]["AI_TELEMETRY_SIGNING_KEY"]
             == "${{ secrets.AI_TELEMETRY_SIGNING_KEY }}"
         )
+
+
+def test_all_ai_stages_and_evidence_use_one_immutable_tooling_revision() -> None:
+    document = yaml.safe_load(
+        Path(".github/workflows/ai.yml").read_text(encoding="utf-8")
+    )
+    pins: set[str] = set()
+    recorded: set[str] = set()
+    for job in document["jobs"].values():
+        for step in job.get("steps", []):
+            options = step.get("with", {})
+            if options.get("repository") == "Abdel-Abdelaal/platform-workflows":
+                assert step["uses"].startswith("actions/checkout@")
+                assert options["persist-credentials"] is False
+                assert re.fullmatch(r"[a-f0-9]{40}", options["ref"])
+                pins.add(options["ref"])
+            revision = step.get("env", {}).get("TOOLING_COMMIT")
+            if revision is not None:
+                recorded.add(revision)
+    assert len(pins) == 1
+    assert recorded == pins
