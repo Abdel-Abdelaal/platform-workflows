@@ -17,6 +17,7 @@ from tools.ai_contract import Analysis, extract_text, parse_analysis
 from tools.ai_output_scan import REDACTED as SCANNER_REDACTED
 from tools.ai_output_scan import OutputScanError, scan_events, scanner_path
 from tools.ai_redaction import redact_events
+from tools.ai_retry import validation_feedback
 
 MODEL = "mimo/mimo-v2.6-flash"
 BASE_URL = "https://token-plan-ams.xiaomimimo.com/v1"
@@ -50,8 +51,24 @@ class AnalysisUnavailableError(Exception):
     """Bounded analysis attempts failed; raw provider output stays private."""
 
 
+class CompletionBudgetExhaustedError(AnalysisUnavailableError):
+    """The provider exhausted its completion budget without returning an answer."""
+
+
 class SecretPatchError(ValueError):
     """A secret-bearing patch must not become an executable replacement patch."""
+
+
+def parse_response(events: str, *, redactions: int | None = None) -> Analysis:
+    """Distinguish a spent completion budget from recoverable output errors."""
+    text = extract_text(events)
+    steps = ai_telemetry.step_parts(events)
+    if not text.strip() and steps and steps[-1].get("reason") == "length":
+        raise CompletionBudgetExhaustedError
+    analysis = parse_analysis(text)
+    if redactions and SCANNER_REDACTED in analysis.patch:
+        raise SecretPatchError
+    return analysis
 
 
 def safe_events(events: str, key: str, scanner: Path | None) -> tuple[str, int | None]:
@@ -218,9 +235,20 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 )
                 events, redactions = safe_events(result.stdout, key, scanner)
                 sanitized = True
-                analysis = parse_analysis(extract_text(events))
-                if redactions and SCANNER_REDACTED in analysis.patch:
-                    raise SecretPatchError
+                analysis = parse_response(events, redactions=redactions)
+            except CompletionBudgetExhaustedError as error:
+                ai_telemetry.record_attempt(
+                    events,
+                    time.monotonic() - started,
+                    error,
+                    prompt=command[-1],
+                    secret_redactions=redactions,
+                )
+                sys.stderr.write(
+                    "Provider completion budget exhausted without an answer; "
+                    "identical retries skipped.\n"
+                )
+                raise
             except OutputScanError as error:
                 ai_telemetry.record_attempt(
                     "", time.monotonic() - started, error, prompt=command[-1]
@@ -266,7 +294,7 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                     f"Analysis attempt {attempt + 1}/3 failed "
                     f"({type(error).__name__}); provider output withheld.\n"
                 )
-                command[-1] = prompt + "\n" + SYSTEM_PROMPT
+                command[-1] = prompt + "\n" + SYSTEM_PROMPT + validation_feedback(error)
             else:
                 ai_telemetry.record_attempt(
                     events,
