@@ -50,8 +50,8 @@ reasoning and returned no text, so audits failed with `json_invalid`.
 `reasoning_effort` and `enable_thinking` are ignored. `response_format: json_object`
 is served; strict `json_schema` is not. Whole-repository modes (audit, fix,
 standards) run with reasoning disabled and JSON mode on (`--thinking disabled`);
-diff review keeps reasoning, which it can afford. In four full-context
-reproductions without reasoning, three produced validated output within the three
+diff review keeps reasoning, but can also exhaust the completion budget. In four
+full-context reproductions without reasoning, three produced validated output within the three
 attempts. The remaining schema failures were invented comment fields and too many
 comments; those prompts now require an empty `comments` array, since only the
 summary is published. **Trade-off:** without reasoning, Flash is shallower (it
@@ -63,6 +63,36 @@ output. These boundaries reduce prompt-injection impact; they do not prove AI co
 
 The tooling and reusable workflows are implemented and tested. Fleet activation
 is tracked by consumer PRs; a configured file is not evidence of a successful run.
+
+### Evidence-driven retries
+
+The runner retains the configured thinking setting, completion budget and
+per-attempt deadline. It does not silently disable reasoning to obtain an answer.
+A completed provider step reporting `length` with no answer text is recorded as
+`CompletionBudgetExhaustedError` and stops that analysis. Repeating the identical
+request under the same exhausted budget is skipped; the workflow fails explicitly
+and retains usage, finish reasons and the failed attempt. This is not a successful
+review, a time cutoff, or a checkpoint for resuming provider reasoning.
+A valid JSON answer is still accepted when the provider reports `length`.
+Missing finish metadata and ordinary malformed answers retain the existing
+maximum of three attempts.
+
+Recoverable schema failures receive at most five diagnostics, each with at most
+six location components. Diagnostics contain only allowlisted schema field names
+and validation error codes. Unknown field names and codes become fixed markers;
+model values, messages, repository paths and raw output never become retry
+instructions. Scanner failure remains terminal, and tools/privileged credentials
+remain unavailable to the model.
+
+The motivation was the shortlink PR64 advisory run
+[40942984936](https://github.com/Abdel-Abdelaal/shortlink/actions/runs/40942984936):
+three completed attempts returned no answer, each reporting `length`. Together
+they consumed 96,002 reported output tokens, including 96,000 reasoning tokens,
+and about 19 minutes of inference. New regression fixtures reproduce that event
+shape without calling a provider. Before this change the fixture ran three
+attempts; afterward it stops after one and records the specific cause. This is
+replay evidence for retry behavior, not proof of improved model correctness or a
+measurement of live savings. The historical failed run is unchanged.
 
 ## Workflows
 
