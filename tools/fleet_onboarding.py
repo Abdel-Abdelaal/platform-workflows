@@ -290,6 +290,8 @@ def publish(plan: dict[str, Any]) -> str | None:
     if set(files) - set(FILES):
         message = "proposal contains files outside the reviewed allowlist"
         raise ValueError(message)
+    provision_maintenance_app(repository)
+    provision_provider_key(repository)
     created_tree = mapping(
         github_api(
             f"repos/{repository}/git/trees",
@@ -323,8 +325,6 @@ def publish(plan: dict[str, Any]) -> str | None:
             "sha": commit["sha"],
         },
     )
-    provision_maintenance_app(repository)
-    provision_provider_key(repository)
     pull = mapping(
         github_api(
             f"repos/{repository}/pulls",

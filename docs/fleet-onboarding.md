@@ -95,7 +95,8 @@ Neither maintenance secret is exposed to planning, artifacts or a model.
 A fresh public/owner/fork/archive/disabled metadata check is required before this
 pair is provisioned. Both source values must exist. Existing complete pairs are
 preserved across all secret pages; a partial destination pair fails for owner
-review instead of mixing identities. Writes are not atomic: if interrupted after
+review instead of mixing identities. Credential eligibility and pair checks complete before Git objects or enrollment
+branches are created. Secret writes are not atomic: if interrupted after
 one secret, the next attempt refuses the partial pair rather than guessing its
 identity. Existing enrollment PRs also receive missing credentials. An App
 installation on all repositories alone does not configure caller secrets; the

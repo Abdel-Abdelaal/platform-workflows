@@ -461,3 +461,32 @@ def test_existing_maintenance_identity_is_never_overwritten_even_on_later_pages(
         fleet.provision_maintenance_app(PUBLIC["full_name"])
     run.assert_not_called()
     assert "page=2" in api.call_args.args[0]
+
+
+def test_partial_maintenance_pair_stops_before_creating_any_git_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOT_APP_ID", "test-id")
+    monkeypatch.setenv("BOT_APP_KEY", "test-value")
+    run = Mock()
+
+    def api(path: str, method: str = "GET", _data: Any = None) -> Any:
+        assert method == "GET", "credentials must be checked before writing Git objects"
+        if "/pulls?" in path:
+            return []
+        if "/actions/secrets?" in path:
+            return {"secrets": [{"name": "BOT_APP_ID"}]}
+        return {**PUBLIC, "visibility": "public", "disabled": False}
+
+    monkeypatch.setattr(fleet, "github_api", api)
+    monkeypatch.setattr(fleet.subprocess, "run", run)
+    plan = {
+        "repository": PUBLIC["full_name"],
+        "files": {"README.md": "starter"},
+        "parent": SHA,
+        "tree": SHA,
+        "base": "master",
+    }
+    with pytest.raises(ValueError, match="partial maintenance"):
+        fleet.publish(plan)
+    run.assert_not_called()
