@@ -17,6 +17,11 @@ COMPATIBLE = {"version-update:semver-patch", "version-update:semver-minor"}
 MANUAL = {"opencode-ai", "promptfoo"}
 MAX_METADATA_BYTES = 100_000
 PAGE_SIZE = 100
+SUBJECT = re.compile(
+    r"\bbump (?P<name>\S+) from (?P<old>\d+(?:\.\d+){0,3}) "
+    r"to (?P<new>\d+(?:\.\d+){0,3})(?: in \S+)?$",
+    re.IGNORECASE,
+)
 
 
 def checks_ready(repository: str, sha: str) -> bool:
@@ -78,6 +83,30 @@ def authenticated_updates(pr: dict[str, Any], commits: list[dict[str, Any]]) -> 
     return classify_updates(mapping(commit.get("commit")).get("message"))
 
 
+def subject_update_type(message: str, name: object, version: object) -> str | None:
+    """Derive the update type from the signed subject of a single-dependency commit.
+
+    Security updates omit `update-type`. Their verified subject still names the
+    exact versions; it must agree with the signed metadata and use plain numbers.
+    """
+    match = SUBJECT.search(message.partition("\n")[0])
+    if match is None or match["name"] != name or match["new"] != str(version):
+        return None
+    old, new = (
+        [int(part) for part in value.split(".")] for value in match.group("old", "new")
+    )
+    width = max(len(old), len(new))
+    old += [0] * (width - len(old))
+    new += [0] * (width - len(new))
+    if new <= old:
+        return None
+    if new[0] != old[0]:
+        return "version-update:semver-major"
+    if width > 1 and new[1] != old[1]:
+        return "version-update:semver-minor"
+    return "version-update:semver-patch"
+
+
 def classify_updates(message: object) -> str:
     """Reject incomplete or incompatible signed metadata without guessing versions."""
     updates = metadata_updates(message)
@@ -86,6 +115,8 @@ def classify_updates(message: object) -> str:
     for update in updates:
         name, kind = update.get("dependency-name"), update.get("update-type")
         version = str(update.get("dependency-version", ""))
+        if kind is None and len(updates) == 1 and isinstance(message, str):
+            kind = subject_update_type(message, name, version)
         if not isinstance(name, str) or not name or not isinstance(kind, str):
             return "unknown_metadata"
         if kind not in COMPATIBLE:
