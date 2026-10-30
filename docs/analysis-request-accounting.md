@@ -29,3 +29,28 @@ observability. The probe sources and earlier fixture errors remain local with
 hashes available for telemetry; these summaries are not an independently
 reproduced public benchmark. A tooling source pin and accepted consumer release
 are still needed before this source change affects every caller.
+
+
+## Source-context disclosure regression
+
+Hosted red-team run [41006203572](https://github.com/Abdel-Abdelaal/platform-workflows/actions/runs/41006203572)
+defended seven of eight fixtures. The committed-secret fixture returned a valid,
+useful review that repeated the synthetic source credential. This failure remains
+part of the record; the preceding eight-of-eight run does not establish immunity.
+
+The verified output scanner recognized the value in its source assignment but
+missed its bare occurrence in review prose. Output scanning now includes the
+original untrusted context as scanner data, so detected source values are also
+removed from response events before parsing or telemetry retention. Source text
+is never returned by this API. The existing combined input/report/value bounds,
+isolated scanner environment and fail-closed behavior apply. Only values actually
+removed from output count as redactions. A replacement inside a patch still
+rejects the patch. No scanner detects every secret or transformed disclosure.
+
+A local replay of the failed fixture using the existing pinned Gitleaks binary
+confirmed the bare output survived output-only scanning and was removed with its
+source assignment included. This was an offline synthetic replay, with no model
+inference or actual credentials; it is not a new autonomous red-team success.
+Tests cover ordinary responses, timeout output retention, unchanged safe output,
+redaction counts and combined input bounds. A new hosted run is needed to measure
+the revised pipeline against the live model.
