@@ -216,6 +216,63 @@ def test_pre_one_minor_and_entire_group_require_review() -> None:
     assert merge.classify_updates(COMMIT["commit"]["message"]) == "compatible"
 
 
+def security_message(
+    subject: str, name: str = "postcss", version: str = "8.5.31"
+) -> str:
+    """The shape of a real signed Dependabot security update, without update-type."""
+    return (
+        f"{subject}\n\nBumps postcss.\n\n---\nupdated-dependencies:\n"
+        f"- dependency-name: {name}\n  dependency-version: {version}\n"
+        "  dependency-type: indirect\n...\n\nSigned-off-by: dependabot[bot]\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("subject", "reason"),
+    [
+        ("chore(deps): bump postcss from 8.5.20 to 8.5.31 in /web-chat", "compatible"),
+        ("build(deps): Bump postcss from 8.4.9 to 8.5.31", "compatible"),
+        (
+            "chore(deps): bump postcss from 7.0.1 to 8.5.31 in /web-chat",
+            "manual_update",
+        ),
+        ("chore(deps): bump postcss from 8.5.20 to 8.5.30 in /web", "unknown_metadata"),
+        ("chore(deps): bump other from 8.5.20 to 8.5.31 in /web", "unknown_metadata"),
+        ("chore(deps): bump postcss from 8.5.31 to 8.5.31", "unknown_metadata"),
+        ("chore(deps): bump postcss from 8.5.20-rc.1 to 8.5.31", "unknown_metadata"),
+        ("chore(deps): update postcss", "unknown_metadata"),
+    ],
+    ids=[
+        "patch",
+        "minor",
+        "major",
+        "version-mismatch",
+        "name-mismatch",
+        "not-an-upgrade",
+        "prerelease",
+        "no-versions",
+    ],
+)
+def test_security_update_type_comes_only_from_the_agreeing_signed_subject(
+    subject: str, reason: str
+) -> None:
+    assert merge.classify_updates(security_message(subject)) == reason
+
+
+def test_security_minor_before_one_still_needs_review() -> None:
+    message = security_message(
+        "chore(deps): bump postcss from 0.4.1 to 0.5.0", version="0.5.0"
+    )
+    assert merge.classify_updates(message) == "prestable_update"
+
+
+def test_grouped_updates_without_update_type_are_never_derived() -> None:
+    message = security_message(
+        "chore(deps): bump postcss from 8.5.20 to 8.5.31"
+    ).replace("...", "- dependency-name: other\n  dependency-version: 1.0.1\n...")
+    assert merge.classify_updates(message) == "unknown_metadata"
+
+
 def test_real_inspection_retains_exact_authenticated_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
