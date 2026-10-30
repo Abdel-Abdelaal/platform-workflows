@@ -410,12 +410,22 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--diff", type=Path)
     parser.add_argument(
+        "--experiment-profile",
+        choices=["32000-600", "32000-3600", "131072-600", "131072-3600"],
+    )
+    parser.add_argument(
         "--thinking",
         choices=["enabled", "disabled"],
         default="enabled",
         help="disable for whole-repository context so the budget reaches the JSON",
     )
     args = parser.parse_args()
+    experiment = None
+    if args.experiment_profile:
+        if not args.record or not args.manifest or args.thinking != "enabled":
+            parser.error("experiments require a record, input manifest and thinking")
+        output_tokens, timeout_seconds = map(int, args.experiment_profile.split("-"))
+        experiment = ExperimentBudget(output_tokens, timeout_seconds)
     context = args.context.read_text(encoding="utf-8")
     prompt = args.prompt.read_text(encoding="utf-8")
     record = ai_telemetry.new_record(
@@ -423,9 +433,22 @@ def main() -> None:
     )
     record["configuration"]["prompt_file"] = args.prompt.name
     record["configuration"]["system_prompt_sha256"] = ai_telemetry.digest(SYSTEM_PROMPT)
+    if args.experiment_profile:
+        record["configuration"]["requested_experiment_profile"] = (
+            args.experiment_profile
+        )
     token = ai_telemetry.CURRENT.set(record if args.record else None)
     try:
         ai_telemetry.attach_manifest(record, context, args.manifest)
+        if experiment is not None and (
+            not record["configuration"]["manifest_complete"]
+            or not record["context_manifest"]
+        ):
+            record.update(
+                evidence_gap=True,
+                evidence_gap_reason="experimental input manifest unavailable",
+            )
+            raise AnalysisUnavailableError
         diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         record["configuration"].update(
             diff_sha256=ai_telemetry.digest(diff), diff_characters=len(diff)
@@ -437,7 +460,13 @@ def main() -> None:
                 '{"skipped": "AI_API_KEY missing"}', encoding="utf-8"
             )
             return
-        result = analyze(context, prompt, key, thinking=args.thinking == "enabled")
+        result = analyze(
+            context,
+            prompt,
+            key,
+            thinking=args.thinking == "enabled",
+            experiment=experiment,
+        )
         ai_telemetry.complete(record, result, diff)
         args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     finally:
