@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -241,3 +242,14 @@ def test_tooling_revision_rejects_broken_workflow_contracts(mutation: str) -> No
         producer["env"]["TOOLING_COMMIT"] = "a" * 40
     with pytest.raises(AssertionError):
         assert_tooling_revision(document)
+
+
+def test_release_generation_updates_every_telemetry_release_identity() -> None:
+    config = json.loads(Path("release-please-config.json").read_text(encoding="utf-8"))
+    assert ".github/workflows/ai.yml" in config["packages"]["."]["extra-files"]
+    lines = Path(".github/workflows/ai.yml").read_text(encoding="utf-8").splitlines()
+    identities = [line for line in lines if "PLATFORM_RELEASE:" in line]
+    assert len(identities) == 2
+    release = "v" + Path("version.txt").read_text(encoding="utf-8").strip()
+    for line in identities:
+        assert line.strip() == f"PLATFORM_RELEASE: {release} # x-release-please-version"
