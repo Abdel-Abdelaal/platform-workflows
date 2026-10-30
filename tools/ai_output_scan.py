@@ -91,9 +91,9 @@ def secret_values(matches: object, status: int) -> set[str]:
     return secrets
 
 
-def scan_events(events: str, scanner: Path) -> tuple[str, int]:
-    """Redact matched values, or fail closed on malformed/unavailable scan evidence."""
-    if len(events.encode()) > MAX_EVENTS_BYTES:
+def scan_events(events: str, scanner: Path, *, context: str = "") -> tuple[str, int]:
+    """Scan output plus source context; redact only output, never return source."""
+    if len(events.encode()) + len(context.encode()) > MAX_EVENTS_BYTES:
         raise OutputScanError
     if not events:
         return events, 0
@@ -105,7 +105,7 @@ def scan_events(events: str, scanner: Path) -> tuple[str, int]:
             except ValueError:
                 value = line
             values.append(decoded(value))
-        source = json.dumps(values, ensure_ascii=False).encode()
+        source = (json.dumps(values, ensure_ascii=False) + "\n" + context).encode()
         if len(source) > MAX_EVENTS_BYTES:
             raise OutputScanError
         with tempfile.TemporaryDirectory(prefix="ai-output-scan-") as directory:
@@ -142,8 +142,12 @@ def scan_events(events: str, scanner: Path) -> tuple[str, int]:
                 raise OutputScanError
             matches: object = json.loads(report.read_text(encoding="utf-8"))
         secrets = secret_values(matches, result.returncode)
+        redactions = 0
         for secret in sorted(secrets, key=len, reverse=True):
-            events = redact_events(events, secret, replacement=REDACTED)
-        return events, len(secrets)
+            cleaned = redact_events(events, secret, replacement=REDACTED)
+            redactions += cleaned != events
+            events = cleaned
     except (OSError, ValueError, TypeError, RecursionError, subprocess.SubprocessError):
         raise OutputScanError from None
+    else:
+        return events, redactions

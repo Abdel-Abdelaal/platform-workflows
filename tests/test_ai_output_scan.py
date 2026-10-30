@@ -237,7 +237,8 @@ def test_matched_secrets_are_removed_before_output_and_telemetry(
     cleaned = raw.replace("other-secret", scanner.REDACTED)
     run = Mock(return_value=subprocess.CompletedProcess([], 0, raw))
 
-    def scan(data: str, _path: Path) -> tuple[str, int]:
+    def scan(data: str, _path: Path, *, context: str = "") -> tuple[str, int]:
+        assert context == "context"
         assert "provider-key" not in data
         return cleaned.replace("provider-key", "redacted"), 1
 
@@ -258,3 +259,58 @@ def test_matched_secrets_are_removed_before_output_and_telemetry(
     assert "other-secret" not in json.dumps(record)
     assert all(attempt["secret_values_redacted"] == 1 for attempt in record["attempts"])
     assert run.call_count == (3 if patch else 1)
+
+
+@pytest.mark.parametrize("process_failure", [False, True])
+def test_context_secrets_are_removed_from_bare_output_and_failure_telemetry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    process_failure: bool,
+) -> None:
+    record = setup_runner(tmp_path, monkeypatch)
+    sample = "context-only-sensitive-value"
+    context = 'API_TOKEN = "' + sample + '"'
+    event = json.dumps(
+        {"type": "text", "part": {"text": json.dumps({"summary": sample})}}
+    )
+    provider = (
+        Mock(side_effect=subprocess.TimeoutExpired("opencode", 600, output=event))
+        if process_failure
+        else Mock(return_value=subprocess.CompletedProcess([], 0, event))
+    )
+    scan = report_stub([{"Secret": sample}], 1)
+
+    def run(command: list[str], **options: Any) -> Any:
+        if "--report-path" in command:
+            return scan(command, **options)
+        return provider(command, **options)
+
+    monkeypatch.setattr(scanner.subprocess, "run", run)
+    token = ai_telemetry.CURRENT.set(record)
+    try:
+        if process_failure:
+            with pytest.raises(ai_runner.AnalysisUnavailableError):
+                ai_runner.analyze(context, "prompt", "provider-key")
+        else:
+            assert (
+                ai_runner.analyze(context, "prompt", "provider-key").summary
+                == scanner.REDACTED
+            )
+    finally:
+        ai_telemetry.CURRENT.reset(token)
+    assert context in scan.call_args.kwargs["input"].decode()
+    assert sample not in json.dumps(record)
+    assert all(attempt["secret_values_redacted"] == 1 for attempt in record["attempts"])
+
+
+def test_context_only_matches_do_not_inflate_output_redaction_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scan = report_stub([{"Secret": "context-sensitive-value"}], 1)
+    monkeypatch.setattr(scanner.subprocess, "run", scan)
+    assert scanner.scan_events(
+        "safe response", Path("/scanner"), context="context-sensitive-value"
+    ) == ("safe response", 0)
+    monkeypatch.setattr(scanner, "MAX_EVENTS_BYTES", 16)
+    with pytest.raises(scanner.OutputScanError):
+        scanner.scan_events("safe", Path("/scanner"), context="c" * 16)
