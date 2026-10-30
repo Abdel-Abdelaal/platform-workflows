@@ -249,7 +249,9 @@ def test_release_generation_updates_every_telemetry_release_identity() -> None:
     config = json.loads(
         (root / "release-please-config.json").read_text(encoding="utf-8")
     )
-    assert ".github/workflows/ai.yml" in config["packages"]["."]["extra-files"]
+    assert {"type": "generic", "path": ".github/workflows/ai.yml"} in config[
+        "packages"
+    ]["."]["extra-files"]
     source = (root / ".github/workflows/ai.yml").read_text(encoding="utf-8")
     release = "v" + (root / "version.txt").read_text(encoding="utf-8").strip()
     workflow = yaml.safe_load(source)
@@ -260,9 +262,9 @@ def test_release_generation_updates_every_telemetry_release_identity() -> None:
         )
     for line in source.splitlines():
         if "PLATFORM_RELEASE:" in line:
-            assert (
-                line.strip()
-                == f"PLATFORM_RELEASE: {release} # x-release-please-version"
+            assert re.fullmatch(
+                rf"PLATFORM_RELEASE:\s+{re.escape(release)}\s+#\s*x-release-please-version",
+                line.strip(),
             )
 
 
@@ -271,8 +273,14 @@ def test_release_token_is_repo_scoped_and_can_update_workflow_files() -> None:
     source = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
     document = yaml.safe_load(source)
     app = next(
-        step for step in document["jobs"]["release"]["steps"] if step.get("id") == "app"
+        (
+            step
+            for step in document["jobs"]["release"]["steps"]
+            if step.get("id") == "app"
+        ),
+        None,
     )
+    assert app is not None
     assert app["with"]["repositories"] == "${{ github.event.repository.name }}"
     assert app["with"]["permission-workflows"] == "write"
     assert "permission-administration" not in app["with"]

@@ -16,7 +16,10 @@
           "path": "uv.lock",
           "jsonpath": "$.package[?(@.name.value=='platform-workflows')].version"
         },
-        ".github/workflows/ai.yml"
+        {
+          "type": "generic",
+          "path": ".github/workflows/ai.yml"
+        }
       ]
     }
   }

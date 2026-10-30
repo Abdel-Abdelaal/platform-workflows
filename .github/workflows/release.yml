@@ -15,7 +15,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
       (github.repository == 'Abdel-Abdelaal/platform-workflows' ||
-       github.repository == 'Abdel-Abdelaal/shortlink')
+        github.repository == 'Abdel-Abdelaal/shortlink')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
