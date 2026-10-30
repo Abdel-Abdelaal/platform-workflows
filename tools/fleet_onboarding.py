@@ -194,11 +194,9 @@ def proposal(repository: dict[str, Any], starter: dict[str, str]) -> dict[str, A
     }
 
 
-def provision_provider_key(repository: str) -> None:
-    """Set only a missing provider key, using encrypted CLI stdin without logging."""
-    key = os.environ.get("AI_API_KEY", "")
-    if not key:
-        return
+def existing_secret_names(repository: str, names: set[str]) -> set[str]:
+    """Read all necessary pages while returning names only, never secret values."""
+    found: set[str] = set()
     page = 1
     while True:
         secrets = mapping(
@@ -207,11 +205,19 @@ def provision_provider_key(repository: str) -> None:
             )
         )
         batch = objects(secrets["secrets"])
-        if any(item.get("name") == "AI_API_KEY" for item in batch):
-            return
-        if len(batch) < PAGE_SIZE:
-            break
+        found.update(str(item["name"]) for item in batch if item.get("name") in names)
+        if found == names or len(batch) < PAGE_SIZE:
+            return found
         page += 1
+
+
+def provision_provider_key(repository: str) -> None:
+    """Set only a missing provider key, using encrypted CLI stdin without logging."""
+    key = os.environ.get("AI_API_KEY", "")
+    if not key:
+        return
+    if "AI_API_KEY" in existing_secret_names(repository, {"AI_API_KEY"}):
+        return
     subprocess.run(
         ["gh", "secret", "set", "AI_API_KEY", "--repo", repository],
         input=key,
@@ -221,6 +227,45 @@ def provision_provider_key(repository: str) -> None:
         encoding="utf-8",
         timeout=60,
     )
+
+
+def provision_maintenance_app(repository: str) -> None:
+    """Provision an absent approved pair only to a freshly verified public target."""
+    names = ("BOT_APP_ID", "BOT_APP_KEY")
+    values = {name: os.environ.get(name, "") for name in names}
+    if not any(values.values()):
+        return
+    if not all(values.values()):
+        message = "maintenance App provisioning requires a complete pair"
+        raise ValueError(message)
+    metadata = mapping(github_api(f"repos/{repository}"))
+    if (
+        not repository.startswith(OWNER + "/")
+        or metadata.get("full_name") != repository
+        or metadata.get("private") is not False
+        or metadata.get("visibility") != "public"
+        or metadata.get("archived") is not False
+        or metadata.get("fork") is not False
+        or metadata.get("disabled") is not False
+    ):
+        message = "maintenance credentials require a verified public target"
+        raise ValueError(message)
+    found = existing_secret_names(repository, set(names))
+    if found:
+        if found != set(names):
+            message = "existing partial maintenance identity requires owner review"
+            raise ValueError(message)
+        return
+    for name in names:
+        subprocess.run(
+            ["gh", "secret", "set", name, "--repo", repository],
+            input=values[name],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=60,
+        )
 
 
 def publish(plan: dict[str, Any]) -> str | None:
@@ -234,14 +279,19 @@ def publish(plan: dict[str, Any]) -> str | None:
         github_api(f"repos/{repository}/pulls?state=open&head={OWNER}:{BRANCH}")
     )
     if opened:
+        provision_maintenance_app(repository)
+        provision_provider_key(repository)
         return str(opened[0]["html_url"])
     files = plan["files"]
     if not files:
+        provision_maintenance_app(repository)
         provision_provider_key(repository)
         return None
     if set(files) - set(FILES):
         message = "proposal contains files outside the reviewed allowlist"
         raise ValueError(message)
+    provision_maintenance_app(repository)
+    provision_provider_key(repository)
     created_tree = mapping(
         github_api(
             f"repos/{repository}/git/trees",
@@ -275,7 +325,6 @@ def publish(plan: dict[str, Any]) -> str | None:
             "sha": commit["sha"],
         },
     )
-    provision_provider_key(repository)
     pull = mapping(
         github_api(
             f"repos/{repository}/pulls",

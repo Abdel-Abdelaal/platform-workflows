@@ -283,11 +283,16 @@ def test_existing_pr_and_empty_plan_do_not_change_source(
     api = Mock(side_effect=[PUBLIC, [{"html_url": "existing"}], PUBLIC, []])
     monkeypatch.setattr(fleet, "github_api", api)
     provision = Mock()
+    maintenance = Mock()
+    monkeypatch.setattr(fleet, "provision_maintenance_app", maintenance)
     monkeypatch.setattr(fleet, "provision_provider_key", provision)
     plan: dict[str, Any] = {"repository": PUBLIC["full_name"], "files": {}}
     assert fleet.publish(plan) == "existing"
     assert fleet.publish(plan) is None
-    provision.assert_called_once_with(PUBLIC["full_name"])
+    assert provision.call_count == maintenance.call_count == 2
+    assert all(
+        call.args == (PUBLIC["full_name"],) for call in maintenance.call_args_list
+    )
     assert all(len(call.args) == 1 for call in api.call_args_list)
 
 
@@ -357,8 +362,131 @@ def test_controller_limits_write_credentials_to_trusted_public_targets() -> None
     assert "permission-administration" not in app["with"]
     key_steps = [step for step in steps if "AI_API_KEY" in step.get("env", {})]
     assert len(key_steps) == 1
+    assert key_steps[0]["env"]["BOT_APP_ID"] == "${{ secrets.BOT_APP_ID }}"
+    assert key_steps[0]["env"]["BOT_APP_KEY"] == "${{ secrets.BOT_APP_KEY }}"
+    assert sum("BOT_APP_KEY" in step.get("env", {}) for step in steps) == 1
     assert "--apply" in key_steps[0]["run"]
     app_output_reference = "${{ steps.app.outputs.token }}"
     assert key_steps[0]["env"]["GH_TOKEN"] == app_output_reference
     assert len(fleet.CALLERS) == 9
     assert "lint.yml" in fleet.CALLERS
+
+
+@pytest.mark.parametrize("source", ["none", "partial", "complete"])
+def test_maintenance_pair_uses_fresh_public_metadata_and_stdin(
+    monkeypatch: pytest.MonkeyPatch, source: str
+) -> None:
+    for name in ("BOT_APP_ID", "BOT_APP_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    if source != "none":
+        monkeypatch.setenv("BOT_APP_ID", "test-app-id")
+    if source == "complete":
+        monkeypatch.setenv("BOT_APP_KEY", "test-private-value")
+    api = Mock(
+        side_effect=[
+            {**PUBLIC, "visibility": "public", "disabled": False},
+            {"secrets": []},
+        ]
+    )
+    run = Mock()
+    monkeypatch.setattr(fleet, "github_api", api)
+    monkeypatch.setattr(fleet.subprocess, "run", run)
+    if source == "partial":
+        with pytest.raises(ValueError, match="complete pair"):
+            fleet.provision_maintenance_app(PUBLIC["full_name"])
+        api.assert_not_called()
+    else:
+        fleet.provision_maintenance_app(PUBLIC["full_name"])
+    assert run.call_count == (2 if source == "complete" else 0)
+    if source == "complete":
+        assert [c.args[0][3] for c in run.call_args_list] == [
+            "BOT_APP_ID",
+            "BOT_APP_KEY",
+        ]
+        assert [c.kwargs["input"] for c in run.call_args_list] == [
+            "test-app-id",
+            "test-private-value",
+        ]
+        assert all(c.kwargs["capture_output"] for c in run.call_args_list)
+        assert "test-private-value" not in str(run.call_args_list[1].args)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["private", "fork", "archived", "disabled", "owner", "unknown"]
+)
+def test_maintenance_pair_refuses_ineligible_or_unknown_targets(
+    monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    monkeypatch.setenv("BOT_APP_ID", "test-id")
+    monkeypatch.setenv("BOT_APP_KEY", "test-value")
+    metadata = {**PUBLIC, "visibility": "public", "disabled": False}
+    if mutation in {"private", "fork", "archived", "disabled"}:
+        metadata[mutation] = True
+    elif mutation == "owner":
+        metadata["full_name"] = "someone/else"
+    else:
+        metadata.pop("visibility")
+    api, run = Mock(return_value=metadata), Mock()
+    monkeypatch.setattr(fleet, "github_api", api)
+    monkeypatch.setattr(fleet.subprocess, "run", run)
+    with pytest.raises(ValueError, match="verified public"):
+        fleet.provision_maintenance_app(PUBLIC["full_name"])
+    run.assert_not_called()
+    assert api.call_count == 1
+
+
+@pytest.mark.parametrize("destination", ["complete", "partial"])
+def test_existing_maintenance_identity_is_never_overwritten_even_on_later_pages(
+    monkeypatch: pytest.MonkeyPatch, destination: str
+) -> None:
+    monkeypatch.setenv("BOT_APP_ID", "test-id")
+    monkeypatch.setenv("BOT_APP_KEY", "test-value")
+    names = (
+        ["BOT_APP_ID", "BOT_APP_KEY"] if destination == "complete" else ["BOT_APP_ID"]
+    )
+    api = Mock(
+        side_effect=[
+            {**PUBLIC, "visibility": "public", "disabled": False},
+            {"secrets": [{"name": "other"}] * fleet.PAGE_SIZE},
+            {"secrets": [{"name": name} for name in names]},
+        ]
+    )
+    run = Mock()
+    monkeypatch.setattr(fleet, "github_api", api)
+    monkeypatch.setattr(fleet.subprocess, "run", run)
+    if destination == "partial":
+        with pytest.raises(ValueError, match="partial maintenance"):
+            fleet.provision_maintenance_app(PUBLIC["full_name"])
+    else:
+        fleet.provision_maintenance_app(PUBLIC["full_name"])
+    run.assert_not_called()
+    assert "page=2" in api.call_args.args[0]
+
+
+def test_partial_maintenance_pair_stops_before_creating_any_git_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOT_APP_ID", "test-id")
+    monkeypatch.setenv("BOT_APP_KEY", "test-value")
+    run = Mock()
+
+    def api(path: str, method: str = "GET", _data: Any = None) -> Any:
+        assert method == "GET", "credentials must be checked before writing Git objects"
+        if "/pulls?" in path:
+            return []
+        if "/actions/secrets?" in path:
+            return {"secrets": [{"name": "BOT_APP_ID"}]}
+        return {**PUBLIC, "visibility": "public", "disabled": False}
+
+    monkeypatch.setattr(fleet, "github_api", api)
+    monkeypatch.setattr(fleet.subprocess, "run", run)
+    plan = {
+        "repository": PUBLIC["full_name"],
+        "files": {"README.md": "starter"},
+        "parent": SHA,
+        "tree": SHA,
+        "base": "master",
+    }
+    with pytest.raises(ValueError, match="partial maintenance"):
+        fleet.publish(plan)
+    run.assert_not_called()
