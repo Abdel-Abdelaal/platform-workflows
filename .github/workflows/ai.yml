@@ -147,7 +147,7 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.10.0
+          PLATFORM_RELEASE: v1.10.0 # x-release-please-version
           TOOLING_COMMIT: 7bfc382b08ab8c5cf0a38362f5cead0954ec69be
         run: |
           prompt="$MODE"
@@ -485,7 +485,7 @@ jobs:
           MODE: ${{ inputs.mode }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PLATFORM_RELEASE: v1.10.0
+          PLATFORM_RELEASE: v1.10.0 # x-release-please-version
           TOOLING_COMMIT: 7bfc382b08ab8c5cf0a38362f5cead0954ec69be
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           JOB_RESULTS: ${{ toJSON(needs) }}
