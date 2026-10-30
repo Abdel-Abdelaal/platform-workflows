@@ -245,11 +245,34 @@ def test_tooling_revision_rejects_broken_workflow_contracts(mutation: str) -> No
 
 
 def test_release_generation_updates_every_telemetry_release_identity() -> None:
-    config = json.loads(Path("release-please-config.json").read_text(encoding="utf-8"))
+    root = Path(__file__).resolve().parents[1]
+    config = json.loads(
+        (root / "release-please-config.json").read_text(encoding="utf-8")
+    )
     assert ".github/workflows/ai.yml" in config["packages"]["."]["extra-files"]
-    lines = Path(".github/workflows/ai.yml").read_text(encoding="utf-8").splitlines()
-    identities = [line for line in lines if "PLATFORM_RELEASE:" in line]
-    assert len(identities) == 2
-    release = "v" + Path("version.txt").read_text(encoding="utf-8").strip()
-    for line in identities:
-        assert line.strip() == f"PLATFORM_RELEASE: {release} # x-release-please-version"
+    source = (root / ".github/workflows/ai.yml").read_text(encoding="utf-8")
+    release = "v" + (root / "version.txt").read_text(encoding="utf-8").strip()
+    workflow = yaml.safe_load(source)
+    for job in ("analyze", "telemetry"):
+        assert any(
+            step.get("env", {}).get("PLATFORM_RELEASE") == release
+            for step in workflow["jobs"][job]["steps"]
+        )
+    for line in source.splitlines():
+        if "PLATFORM_RELEASE:" in line:
+            assert (
+                line.strip()
+                == f"PLATFORM_RELEASE: {release} # x-release-please-version"
+            )
+
+
+def test_release_token_is_repo_scoped_and_can_update_workflow_files() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    document = yaml.safe_load(source)
+    app = next(
+        step for step in document["jobs"]["release"]["steps"] if step.get("id") == "app"
+    )
+    assert app["with"]["repositories"] == "${{ github.event.repository.name }}"
+    assert app["with"]["permission-workflows"] == "write"
+    assert "permission-administration" not in app["with"]
