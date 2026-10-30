@@ -11,6 +11,7 @@ on:
       - 'redteam/**'
       - 'prompts/**'
       - 'tools/ai_*.py'
+      - 'tests/test_redteam_dependencies.py'
       - '.github/workflows/ai-redteam.yml'
 permissions: {}
 concurrency:
@@ -62,6 +63,9 @@ jobs:
           npm ci --no-audit --no-fund
           npm ci --prefix redteam --no-audit --no-fund
           echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Verify patched red-team dependency compatibility without provider credentials
+        if: steps.key.outputs.ready == 'true'
+        run: uv run --locked --group dev python -m pytest tests/test_redteam_dependencies.py -q
       - name: Install verified production output scanner
         if: steps.key.outputs.ready == 'true'
         run: |

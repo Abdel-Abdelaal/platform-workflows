@@ -45,7 +45,10 @@ described in [ai.md](ai.md). It can comment. It can't approve, merge, push or bl
 
 ### LLM03 Supply chain
 - **Controls:**
-  - OpenCode and promptfoo are installed from lockfiles. promptfoo lives in its own `redteam/` package, so its dependencies never install into jobs that hold the AI key.
+  - OpenCode and promptfoo are installed from lockfiles. promptfoo lives in its own
+    `redteam/` package and is excluded from ordinary analysis jobs. The dedicated
+    real red-team job installs it and supplies the provider key only to its attack
+    step; its dependency compatibility check receives no provider credentials.
   - Every action and reusable workflow is pinned by full commit SHA, and Dependabot proposes updates only after a 14-day cooldown.
   - The provider and model are fixed, with no fallback.
 - **Evidence:** dependency review, OSV-Scanner and pip-audit on every PR; the weekly OpenSSF Scorecard; the fleet dependency inventory.
@@ -99,3 +102,20 @@ python redteam/report.py --results results.json --markdown out.md --summary out.
 ```
 
 Adding an attack: add a test with `defended` and `useful` assertions and an `owasp` metadata ID, then update the table above.
+
+### Red-team dependency security updates
+
+The 30 October 2026 security update keeps promptfoo 0.124.1 and resolves its
+transitive Azure identity, Forge and Hono alerts. Forge 1.4.2 includes the
+[maintainer's documented signature-verification fixes](https://github.com/digitalbazaar/forge/blob/v1.4.2/CHANGELOG.md).
+The Hono server is pinned to compatible patch 2.1.5 because promptfoo pins an older
+server exactly. get-uri's FTP dependency is scoped to security-patched basic-ftp
+6.2.4; version 6 deliberately restricts separate transfer hosts by default.
+These are security updates under the handbook's cooldown exception.
+
+The compatibility check runs the actual get-uri client against a loopback-only
+FTP fixture for transfer, cache and missing-file behavior before live attacks.
+It does not exercise every optional provider or prove that dependencies have no
+unknown vulnerabilities. Remove temporary overrides when upstream dependencies
+adopt the fixes, retaining their verification. npm audit and normal PR checks
+remain active; forced dependency downgrades and advisory suppression are not used.
