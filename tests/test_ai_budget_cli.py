@@ -99,3 +99,25 @@ def test_invalid_manifest_preserves_refusal_record_without_analysis(
     assert record["attempts"] == []
     assert record["configuration"]["requested_experiment_profile"] == "131072-3600"
     assert ai_telemetry.CURRENT.get() is None
+
+
+def test_disabled_thinking_refused_before_analysis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *arguments(tmp_path),
+            "--experiment-profile",
+            "131072-3600",
+            "--thinking",
+            "disabled",
+        ],
+    )
+    analyze = Mock()
+    monkeypatch.setattr(ai_runner, "analyze", analyze)
+    with pytest.raises(SystemExit):
+        ai_runner.main()
+    analyze.assert_not_called()
