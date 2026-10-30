@@ -123,7 +123,7 @@ const stream = await getUri(base + '/fixture.txt');
 let text = ''; for await (const chunk of stream) text += chunk.toString();
 assert.equal(text, {json.dumps(PAYLOAD.decode())});
 await assert.rejects(
-  getUri(base + '/fixture.txt', {{cache:stream}}), {{code:'ENOTMODIFIED'}});
+    getUri(base + '/fixture.txt', {{cache:stream}}), {{code:'ENOTMODIFIED'}});
 await assert.rejects(getUri(base + '/missing.txt'), {{code:'ENOTFOUND'}});
 """
         environment = {
@@ -166,14 +166,14 @@ assert.ok(major > 2 || (major === 2 && (minor > 1 || (minor === 1 && patch >= 3)
 const app = new Hono(); app.get('/compat', c => c.text('verified local adapter'));
 let server;
 const url = await new Promise(resolve => {
-  server = serve({fetch:app.fetch,hostname:'127.0.0.1',port:0}, info => {
+    server = serve({fetch:app.fetch,hostname:'127.0.0.1',port:0}, info => {
     resolve('http://127.0.0.1:' + info.port + '/compat');
-  });
+    });
 });
 try {
-  const response = await fetch(url, {headers:{connection:'close'}});
-  assert.equal(response.status,200);
-  assert.equal(await response.text(),'verified local adapter');
+    const response = await fetch(url, {headers:{connection:'close'}});
+    assert.equal(response.status,200);
+    assert.equal(await response.text(),'verified local adapter');
 } finally { await new Promise(resolve => server.close(resolve)); }
 """
     environment = {
