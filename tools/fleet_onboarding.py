@@ -15,8 +15,8 @@ from tools.github_api import github_api
 
 OWNER = "Abdel-Abdelaal"
 BASELINE_COMMIT = "2db3f67b69f1282c9cb377d8a30ae2a9948898c0"
-PLATFORM_COMMIT = "40b37ce9647cc6cde2adc3d3d1acfc0aa06f92c9"
-PLATFORM_RELEASE = "v1.10.0"
+PLATFORM_COMMIT = "f5e165971bf42fd3e5363ebd7baa0d827f81951c"
+PLATFORM_RELEASE = "v1.11.0"
 BRANCH = "ci/fleet-onboarding"
 PAGE_SIZE = 100
 MAX_FILE_BYTES = 100_000
