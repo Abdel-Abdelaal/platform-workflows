@@ -90,12 +90,14 @@ def parse_response(events: str, *, redactions: int | None = None) -> Analysis:
     return analysis
 
 
-def safe_events(events: str, key: str, scanner: Path | None) -> tuple[str, int | None]:
+def safe_events(
+    events: str, key: str, scanner: Path | None, *, context: str = ""
+) -> tuple[str, int | None]:
     """Always remove the known key, then optionally scan other decoded secrets."""
     cleaned = redact_events(events, key)
     if scanner is None:
         return cleaned, None
-    return scan_events(cleaned, scanner)
+    return scan_events(cleaned, scanner, context=context)
 
 
 def prepare_output_scanner() -> Path | None:
@@ -320,7 +322,9 @@ def analyze(
                     encoding="utf-8",
                     timeout=timeout_seconds,
                 )
-                events, redactions = safe_events(result.stdout, key, scanner)
+                events, redactions = safe_events(
+                    result.stdout, key, scanner, context=context
+                )
                 sanitized = True
                 analysis = parse_response(events, redactions=redactions)
             except CompletionBudgetExhaustedError as error:
@@ -360,7 +364,9 @@ def analyze(
                     )
                 if not sanitized:
                     try:
-                        events, redactions = safe_events(events, key, scanner)
+                        events, redactions = safe_events(
+                            events, key, scanner, context=context
+                        )
                     except OutputScanError as scan_error:
                         ai_telemetry.record_attempt(
                             "",
