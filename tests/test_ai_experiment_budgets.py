@@ -95,7 +95,10 @@ def test_one_attempt_and_effective_budget_are_recorded(
         ai_runner, "prepare_output_scanner", Mock(return_value=Path("scanner"))
     )
 
-    def scanned(events: str, _key: str, _scanner: Path | None) -> tuple[str, int]:
+    def scanned(
+        events: str, _key: str, _scanner: Path | None, *, context: str = ""
+    ) -> tuple[str, int]:
+        assert context == "context"
         return events, 0
 
     monkeypatch.setattr(ai_runner, "safe_events", scanned)
