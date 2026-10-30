@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -241,3 +242,45 @@ def test_tooling_revision_rejects_broken_workflow_contracts(mutation: str) -> No
         producer["env"]["TOOLING_COMMIT"] = "a" * 40
     with pytest.raises(AssertionError):
         assert_tooling_revision(document)
+
+
+def test_release_generation_updates_every_telemetry_release_identity() -> None:
+    root = Path(__file__).resolve().parents[1]
+    config = json.loads(
+        (root / "release-please-config.json").read_text(encoding="utf-8")
+    )
+    assert {"type": "generic", "path": ".github/workflows/ai.yml"} in config[
+        "packages"
+    ]["."]["extra-files"]
+    source = (root / ".github/workflows/ai.yml").read_text(encoding="utf-8")
+    release = "v" + (root / "version.txt").read_text(encoding="utf-8").strip()
+    workflow = yaml.safe_load(source)
+    for job in ("analyze", "telemetry"):
+        assert any(
+            step.get("env", {}).get("PLATFORM_RELEASE") == release
+            for step in workflow["jobs"][job]["steps"]
+        )
+    for line in source.splitlines():
+        if "PLATFORM_RELEASE:" in line:
+            assert re.fullmatch(
+                rf"PLATFORM_RELEASE:\s+{re.escape(release)}\s+#\s*x-release-please-version",
+                line.strip(),
+            )
+
+
+def test_release_token_is_repo_scoped_and_can_update_workflow_files() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    document = yaml.safe_load(source)
+    app = next(
+        (
+            step
+            for step in document["jobs"]["release"]["steps"]
+            if step.get("id") == "app"
+        ),
+        None,
+    )
+    assert app is not None
+    assert app["with"]["repositories"] == "${{ github.event.repository.name }}"
+    assert app["with"]["permission-workflows"] == "write"
+    assert "permission-administration" not in app["with"]
