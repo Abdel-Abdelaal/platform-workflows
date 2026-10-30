@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.11.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.10.0...v1.11.0) (2026-10-30)
+
+### Features
+
+* allow the trusted controller to discover public fleet audits and authorize only
+  verified, unchanged proposals under the owner's autonomous intake policy
+  ([#72](https://github.com/Abdel-Abdelaal/platform-workflows/pull/72)); model text
+  cannot authorize itself or change its own task state
+
+### Bug Fixes
+
+* retain omitted payloads and privacy metadata in agent evidence
+  ([#65](https://github.com/Abdel-Abdelaal/platform-workflows/pull/65))
+* distinguish quoted injection evidence from unsafe verdicts in red-team scoring
+  ([#66](https://github.com/Abdel-Abdelaal/platform-workflows/pull/66))
+* classify empty, completion-budget-exhausted analysis explicitly and provide
+  bounded schema feedback for recoverable failures; reasoning settings and
+  deadlines remain unchanged
+  ([#78](https://github.com/Abdel-Abdelaal/platform-workflows/pull/78))
+* activate one immutable reviewed tooling revision across AI analysis,
+  validation, publication and evidence; test inherited settings and reject drift
+  ([#79](https://github.com/Abdel-Abdelaal/platform-workflows/pull/79))
+
+### Rollout and Validation
+
+The reviewed retry source passed 328 tests; the activation has 16 workflow
+contract cases covering positive and deliberately broken configurations. Release
+checks must pass before tagging. Existing consumers and future enrollment still
+need explicit updates to this release's immutable commit; publication alone does
+not move their pins. This release does not enable conversation resume or claim
+that retry classification improves model correctness. Interrupted-state and
+larger-budget experiments are tracked separately.
+
 ## [1.10.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.9.1...v1.10.0) (2026-10-26)
 
 ### Features
