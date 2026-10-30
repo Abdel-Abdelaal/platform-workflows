@@ -113,9 +113,12 @@ server exactly. get-uri's FTP dependency is scoped to security-patched basic-ftp
 6.2.4; version 6 deliberately restricts separate transfer hosts by default.
 These are security updates under the handbook's cooldown exception.
 
-The compatibility check runs the actual get-uri client against a loopback-only
-FTP fixture for transfer, cache and missing-file behavior before live attacks.
+The credential-free dependency job also runs on forks and without an AI key.
+It requires the installed dependencies, checks their security version floors,
+and runs get-uri transfer/cache/missing-file behavior plus a local Hono HTTP
+adapter check before live attacks.
 It does not exercise every optional provider or prove that dependencies have no
-unknown vulnerabilities. Remove temporary overrides when upstream dependencies
-adopt the fixes, retaining their verification. npm audit and normal PR checks
+unknown vulnerabilities. [Issue #94](https://github.com/Abdel-Abdelaal/platform-workflows/issues/94)
+tracks removing temporary overrides when upstream dependencies adopt the fixes,
+with review due 13 November 2026. Retain their verification. npm audit and normal PR checks
 remain active; forced dependency downgrades and advisory suppression are not used.

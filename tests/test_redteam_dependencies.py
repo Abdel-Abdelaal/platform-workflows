@@ -10,11 +10,31 @@ import threading
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1] / "redteam"
 CLIENT = ROOT / "node_modules/get-uri/dist/index.js"
 NODE = shutil.which("node")
 PAYLOAD = b"controlled local FTP transfer\n"
+
+
+def test_dependency_job_runs_without_provider_credentials_and_gates_live_attacks() -> (
+    None
+):
+    document = yaml.safe_load(
+        (ROOT.parent / ".github/workflows/ai-redteam.yml").read_text()
+    )
+    job = document["jobs"]["dependency-check"]
+    assert "if" not in job
+    assert job["permissions"] == {"contents": "read"}
+    assert "secrets." not in json.dumps(job)
+    verify = next(
+        step
+        for step in job["steps"]
+        if step.get("env", {}).get("REDTEAM_DEPS_REQUIRED") == "1"
+    )
+    assert "tests/test_redteam_dependencies.py" in verify["run"]
+    assert document["jobs"]["red-team"]["needs"] == "dependency-check"
 
 
 class LocalFTP(socketserver.StreamRequestHandler):
@@ -77,11 +97,13 @@ class LocalFTP(socketserver.StreamRequestHandler):
 
 
 @pytest.mark.skipif(
-    NODE is None or not CLIENT.is_file(),
+    (NODE is None or not CLIENT.is_file())
+    and os.environ.get("REDTEAM_DEPS_REQUIRED") != "1",
     reason="red-team Node dependencies are installed by the dedicated red-team job",
 )
 def test_patched_basic_ftp_remains_compatible_with_get_uri() -> None:
     assert NODE is not None
+    assert CLIENT.is_file()
     with socketserver.ThreadingTCPServer(("127.0.0.1", 0), LocalFTP) as server:
         server.daemon_threads = True
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -89,7 +111,13 @@ def test_patched_basic_ftp_remains_compatible_with_get_uri() -> None:
         base = f"ftp://127.0.0.1:{server.server_address[1]}"
         program = f"""
 import assert from 'node:assert/strict';
+import {{ createRequire }} from 'node:module';
+import {{ readFileSync }} from 'node:fs';
 import {{ getUri }} from {json.dumps(CLIENT.as_uri())};
+const require = createRequire({json.dumps(CLIENT.as_uri())});
+const ftp = JSON.parse(readFileSync(require.resolve('basic-ftp/package.json')));
+const [major,minor,patch] = ftp.version.split('.').map(Number);
+assert.ok(major > 6 || (major === 6 && (minor > 2 || (minor === 2 && patch >= 4))));
 const base = {json.dumps(base)};
 const stream = await getUri(base + '/fixture.txt');
 let text = ''; for await (const chunk of stream) text += chunk.toString();
@@ -117,3 +145,49 @@ await assert.rejects(getUri(base + '/missing.txt'), {{code:'ENOTFOUND'}});
         finally:
             server.shutdown()
             thread.join()
+
+
+@pytest.mark.skipif(
+    (NODE is None or not CLIENT.is_file())
+    and os.environ.get("REDTEAM_DEPS_REQUIRED") != "1",
+    reason="red-team Node dependencies are installed by the dedicated red-team job",
+)
+def test_patched_hono_adapter_serves_a_local_application() -> None:
+    assert NODE is not None
+    assert CLIENT.is_file()
+    program = """
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+const info = JSON.parse(readFileSync('node_modules/@hono/node-server/package.json'));
+const [major,minor,patch] = info.version.split('.').map(Number);
+assert.ok(major > 2 || (major === 2 && (minor > 1 || (minor === 1 && patch >= 3))));
+const app = new Hono(); app.get('/compat', c => c.text('verified local adapter'));
+let server;
+const url = await new Promise(resolve => {
+  server = serve({fetch:app.fetch,hostname:'127.0.0.1',port:0}, info => {
+    resolve('http://127.0.0.1:' + info.port + '/compat');
+  });
+});
+try {
+  const response = await fetch(url, {headers:{connection:'close'}});
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'verified local adapter');
+} finally { await new Promise(resolve => server.close(resolve)); }
+"""
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() in {"PATH", "SYSTEMROOT", "TEMP", "TMP"}
+    }
+    result = subprocess.run(  # noqa: S603 - fixed local HTTP fixture, no provider input
+        [NODE, "--input-type=module", "-e", program],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=25,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
