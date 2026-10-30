@@ -207,6 +207,8 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
             executable,
             "run",
             "--pure",
+            "--title",
+            "Showcase analysis",
             "--agent",
             "review",
             "--format",

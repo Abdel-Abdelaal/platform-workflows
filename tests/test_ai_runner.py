@@ -51,6 +51,8 @@ def test_runner_uses_clean_directory_pure_mode_and_validates_output(
     result = ai_runner.analyze("untrusted data", "trusted prompt", "key")
     assert result.summary == "review"
     assert "--pure" in run.call_args.args[0]
+    command = run.call_args.args[0]
+    assert command[command.index("--title") + 1] == "Showcase analysis"
     assert "--file" not in run.call_args.args[0]
     assert "untrusted data" in run.call_args.kwargs["input"]
     assert "untrusted data" not in run.call_args.args[0]
