@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,22 @@ PUBLIC: dict[str, Any] = {
     "default_branch": "master",
 }
 SHA = "a" * 40
+
+
+def test_current_callers_and_future_enrollment_share_the_release() -> None:
+    root = Path(__file__).resolve().parents[1]
+    references: list[tuple[str, str]] = []
+    prefix = "Abdel-Abdelaal/platform-workflows/.github/workflows/"
+    for path in (root / ".github/workflows").glob("*.yml"):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if re.search(r"uses:\s*['\"]?" + re.escape(prefix), line):
+                match = re.search(
+                    r"@([a-f0-9]{40})['\"]?\s+#\s+(v\d+\.\d+\.\d+)\s*$", line
+                )
+                assert match is not None, path
+                references.append((match[1], match[2]))
+    assert references
+    assert set(references) == {(fleet.PLATFORM_COMMIT, fleet.PLATFORM_RELEASE)}
 
 
 def api_for_proposal(entries: list[dict[str, str]]) -> Mock:
