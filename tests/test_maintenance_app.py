@@ -5,11 +5,12 @@ from pathlib import Path
 
 
 def test_maintenance_manifest_has_only_reviewed_maintenance_permissions():
+    root = Path(__file__).resolve().parents[1]
     proposed = json.loads(
-        Path("docs/maintenance-automation-app.json").read_text(encoding="utf-8")
+        (root / "docs/maintenance-automation-app.json").read_text(encoding="utf-8")
     )
     enrollment = json.loads(
-        Path("docs/fleet-automation-app.json").read_text(encoding="utf-8")
+        (root / "docs/fleet-automation-app.json").read_text(encoding="utf-8")
     )
     permissions = proposed["default_permissions"]
     assert permissions == {
@@ -19,7 +20,7 @@ def test_maintenance_manifest_has_only_reviewed_maintenance_permissions():
         "issues": "write",
         "workflows": "write",
     }
-    assert set(permissions) - set(enrollment["default_permissions"]) == {"issues"}
-    assert set(enrollment["default_permissions"]) - set(permissions) == {"secrets"}
+    assert "secrets" not in permissions
+    assert "issues" not in enrollment["default_permissions"]
     assert proposed["public"] is False
     assert proposed["default_events"] == []

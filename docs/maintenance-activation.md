@@ -10,15 +10,11 @@ consumer rollout is implied by the draft version proposal in PR #82.
 This follows [GitHub's manifest format](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)
 and [installation boundaries](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/about-creating-github-apps).
 
-[The exact maintenance App manifest](maintenance-automation-app.json) requests:
-
-| Permission | Level | Purpose |
-| --- | --- | --- |
-| Metadata | Read | Identify installed repositories |
-| Contents | Write | Push maintenance branches and publish accepted releases |
-| Pull requests | Write | Open normal maintenance and release proposals |
-| Issues | Write | Update release proposal labels and authorized maintenance reports |
-| Workflows | Write | Propose baseline workflow-file changes through protected PRs |
+[The exact maintenance App manifest](maintenance-automation-app.json) is the
+source of truth for permission names and levels. Contents and pull-request access
+support maintenance branches and normal proposals. Issue access supports release
+labels and maintenance reports; workflow access supports baseline workflow-file
+proposals. Metadata identifies the installed repositories.
 
 It requests no administration, environments, repository secrets or billing
 permissions. It subscribes to no webhook events. A private App can still access
