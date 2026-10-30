@@ -121,7 +121,10 @@ def test_exhausted_analysis_fails_without_provider_output(
         ai_runner.analyze("context", "prompt", "key")
     assert run.call_count == 3
     assert "private" not in str(error.value)
-    assert "private" not in capsys.readouterr().err
+    assert all(call.kwargs["timeout"] == 600 for call in run.call_args_list)
+    diagnostics = capsys.readouterr().err
+    assert "attempt 1/3" in diagnostics
+    assert "private" not in diagnostics
 
 
 def test_context_pipe_reaches_eof_in_a_real_child(

@@ -242,16 +242,23 @@ def _analysis_setup(
     """Keep production defaults; fail closed before experimental credential use."""
     if experiment is None:
         return 3, 600, prepare_output_scanner()
-    runner_config(thinking=thinking, experiment=experiment)
     record = ai_telemetry.CURRENT.get()
     if record is None:
         raise AnalysisUnavailableError
+    attempt_limit = 1
     record["configuration"]["experiment_budget"] = {
         "output_tokens": experiment.output_tokens,
         "timeout_seconds": experiment.timeout_seconds,
-        "attempt_limit": 1,
+        "attempt_limit": attempt_limit,
         "correctness": "awaiting independent adjudication",
     }
+    try:
+        runner_config(thinking=thinking, experiment=experiment)
+    except ValueError:
+        record.update(
+            evidence_gap=True, evidence_gap_reason="experiment configuration refused"
+        )
+        raise AnalysisUnavailableError from None
     scanner = prepare_output_scanner()
     if scanner is None:
         record.update(
@@ -259,7 +266,7 @@ def _analysis_setup(
             evidence_gap_reason="experimental output secret scanner unavailable",
         )
         raise AnalysisUnavailableError
-    return 1, experiment.timeout_seconds, scanner
+    return attempt_limit, experiment.timeout_seconds, scanner
 
 
 def analyze(
