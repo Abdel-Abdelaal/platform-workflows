@@ -7,6 +7,9 @@ consumer rollout is implied by the draft version proposal in PR #82.
 
 ## Identity to review
 
+This follows [GitHub's manifest format](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)
+and [installation boundaries](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/about-creating-github-apps).
+
 [The exact maintenance App manifest](maintenance-automation-app.json) requests:
 
 | Permission | Level | Purpose |
