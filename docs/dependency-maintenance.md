@@ -18,7 +18,9 @@ No upstream source was copied. Dependabot's configured cooldown remains in force
 security updates still receive normal required checks and review.
 
 The controller requires a protected default branch with nonempty strict required
-checks and a currently clean merge state. GitHub enforces protection at the merge;
+checks and a currently clean merge state. Optional deterministic checks must also
+finish successfully; pending or failing checks and incomplete API pages refuse
+a merge. AI analysis remains advisory and never becomes a required gate. GitHub enforces protection at the merge;
 the request supplies the exact inspected head SHA and squash method. It cannot
 approve a review, bypass protection, update a branch, resolve a thread or push to
 the default branch. At most one update per repository merges per cycle. Behind,

@@ -16,6 +16,31 @@ BOT_ID = 49699333
 COMPATIBLE = {"version-update:semver-patch", "version-update:semver-minor"}
 MANUAL = {"opencode-ai", "promptfoo"}
 MAX_METADATA_BYTES = 100_000
+PAGE_SIZE = 100
+
+
+def checks_ready(repository: str, sha: str) -> bool:
+    """Require optional deterministic checks too; AI remains strictly advisory."""
+    root = f"repos/{repository}/commits/{sha}"
+    payload = mapping(github_api(f"{root}/check-runs?per_page={PAGE_SIZE}"))
+    checks = objects(payload.get("check_runs"))
+    if payload.get("total_count") != len(checks) or not checks:
+        return False
+    for check in checks:
+        name = str(check.get("name", ""))
+        if name == "AI advisory" or name.startswith("review / ai /"):
+            continue
+        if check.get("status") != "completed" or check.get("conclusion") not in {
+            "success",
+            "neutral",
+            "skipped",
+        }:
+            return False
+    statuses = mapping(github_api(f"{root}/status?per_page={PAGE_SIZE}"))
+    entries = objects(statuses.get("statuses"))
+    return statuses.get("total_count") == len(entries) and all(
+        status.get("state") == "success" for status in entries
+    )
 
 
 def eligible(repository: dict[str, Any]) -> bool:
@@ -125,6 +150,7 @@ def inspect(repository: str, number: int) -> dict[str, Any]:
         or pr.get("mergeable_state") != "clean"
         or not isinstance(sha, str)
         or re.fullmatch(r"[a-f0-9]{40}", sha) is None
+        or not checks_ready(repository, sha)
     ):
         return {**result, "reason": "checks_reviews_or_base_pending"}
     return {**result, "reason": "eligible", "head": sha}

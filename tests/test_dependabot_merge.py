@@ -117,6 +117,13 @@ def inspection_api(
             {"protected": True},
             RULES if rules is None else rules,
             [COMMIT],
+            {
+                "total_count": 1,
+                "check_runs": [
+                    {"name": "tests", "status": "completed", "conclusion": "success"}
+                ],
+            },
+            {"total_count": 0, "statuses": []},
         ]
     )
 
@@ -272,3 +279,61 @@ def test_controller_only_runs_trusted_default_branch_code() -> None:
     assert app["with"]["repositories"] == "${{ steps.targets.outputs.repositories }}"
     assert "permission-administration" not in app["with"]
     assert workflow["concurrency"]["cancel-in-progress"] is False
+
+
+@pytest.mark.parametrize(
+    ("state", "conclusion"),
+    [("completed", "failure"), ("in_progress", None), ("completed", "cancelled")],
+)
+def test_optional_deterministic_failures_and_pending_checks_prevent_merge(
+    monkeypatch: pytest.MonkeyPatch, state: str, conclusion: str | None
+) -> None:
+    monkeypatch.setattr(
+        merge,
+        "github_api",
+        Mock(
+            return_value={
+                "total_count": 1,
+                "check_runs": [
+                    {
+                        "name": "lint / Lint (all languages)",
+                        "status": state,
+                        "conclusion": conclusion,
+                    }
+                ],
+            }
+        ),
+    )
+    assert not merge.checks_ready(REPO, SHA)
+
+
+def test_advisory_does_not_gate_but_external_pending_status_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = {
+        "total_count": 2,
+        "check_runs": [
+            {"name": "tests", "status": "completed", "conclusion": "success"},
+            {"name": "review / ai / Isolated analysis", "status": "in_progress"},
+        ],
+    }
+    api = Mock(
+        side_effect=[
+            checks,
+            {"total_count": 1, "statuses": [{"state": "pending"}]},
+            checks,
+            {"total_count": 0, "statuses": []},
+        ]
+    )
+    monkeypatch.setattr(merge, "github_api", api)
+    assert not merge.checks_ready(REPO, SHA)
+    assert merge.checks_ready(REPO, SHA)
+
+
+def test_incomplete_check_page_is_not_a_clean_bill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        merge, "github_api", Mock(return_value={"total_count": 101, "check_runs": []})
+    )
+    assert not merge.checks_ready(REPO, SHA)
