@@ -1,7 +1,8 @@
 # Maintenance and release activation
 
 The release source is implemented, but a successful workflow can still mean it
-explicitly skipped. Platform run 40970778731 skipped because BOT_APP_ID and
+explicitly skipped. The platform [release workflow run](https://github.com/Abdel-Abdelaal/platform-workflows/actions/runs/40970778731)
+skipped because BOT_APP_ID and
 BOT_APP_KEY were absent. The release labels are also unapplied. No release or
 consumer rollout is implied by the draft version proposal in PR #82.
 
@@ -22,7 +23,7 @@ private repositories if installed on them; public=false limits who can install
 it, not the visibility of repositories it can access.
 
 This is a separate identity from the existing enrollment App. Enrollment has
-secret-write but no issue-write permission. Do not alias its ENROLLMENT_APP_ID
+no issue-write permission. Do not alias its ENROLLMENT_APP_ID
 or ENROLLMENT_APP_KEY into BOT_APP_* or broaden its approved permissions to
 activate unrelated maintenance jobs. No App token or private key reaches a model.
 
@@ -34,10 +35,11 @@ Review the manifest and installation scope before creating or installing it:
   That broader access needs explicit owner approval. The existing enrollment
   approval does not approve this separate identity or its issue access.
 
-The seven public, active, non-fork repositories observed on 30 October are .github,
+The seven public, active, non-fork repositories observed on 30 October 2026 are .github,
 platform-workflows, shortlink, github-governance, agent-dispatcher, ello and
 youtube-knowledge-distillation. Re-discover and verify visibility before setup;
 this list is an observation, not an authorization or a permanent allowlist.
+The [read-only enrollment planner](fleet-onboarding.md) supplies current discovery.
 
 ## Activation sequence
 
