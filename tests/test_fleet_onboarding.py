@@ -26,8 +26,10 @@ SHA = "a" * 40
 def test_current_callers_and_future_enrollment_share_the_release() -> None:
     root = Path(__file__).resolve().parents[1]
     references: list[tuple[str, str]] = []
-    prefix = "Abdel-Abdelaal/platform-workflows/.github/workflows/"
-    for path in (root / ".github/workflows").glob("*.yml"):
+    prefix = f"{fleet.OWNER}/platform-workflows/.github/workflows/"
+    for path in (root / ".github/workflows").iterdir():
+        if path.suffix not in {".yml", ".yaml"}:
+            continue
         for line in path.read_text(encoding="utf-8").splitlines():
             if re.search(r"uses:\s*['\"]?" + re.escape(prefix), line):
                 match = re.search(
@@ -35,7 +37,7 @@ def test_current_callers_and_future_enrollment_share_the_release() -> None:
                 )
                 assert match is not None, path
                 references.append((match[1], match[2]))
-    assert references
+    assert references, "No platform callers found in .github/workflows"
     assert set(references) == {(fleet.PLATFORM_COMMIT, fleet.PLATFORM_RELEASE)}
 
 
