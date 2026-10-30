@@ -1,0 +1,14 @@
+{
+  "name": "Abdel fleet maintenance",
+  "url": "https://github.com/Abdel-Abdelaal/platform-workflows",
+  "description": "Propose maintenance, release and workflow-file PRs under normal branch protections; no administration or secret-management scopes.",
+  "public": false,
+  "default_events": [],
+  "default_permissions": {
+    "metadata": "read",
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "workflows": "write"
+  }
+}

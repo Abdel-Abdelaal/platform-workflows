@@ -166,6 +166,9 @@ releases. It has no personal-token fallback. Missing App setup skips explicitly.
 Release-please's pinned engine17.6.0 needs `.name.value` in the uv.lock TOML selector;
 that selector was tested against real lock data and changes only the root package.
 App-based release creation still needs owner setup and a live integration run.
+The [maintenance activation proposal](docs/maintenance-activation.md) defines the
+separate App permissions, installation choices and evidence required for release
+and consumer rollout.
 
 Managed callers pin full platform release commits. Verified telemetry adoption is
 visible in the public observatory rather than inferred from configuration. Frozen hook checks
