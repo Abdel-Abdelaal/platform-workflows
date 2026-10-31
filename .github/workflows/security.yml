@@ -113,7 +113,7 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && 'on-failure' || 'never' }}
           show-openssf-scorecard: true
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, MPL-2.0, Python-2.0, Unlicense, 0BSD
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, MPL-2.0, Python-2.0, Unlicense, 0BSD, Zlib, CC0-1.0
           warn-only: ${{ steps.policy.outputs.warn }}
   gradle-wrapper:
     name: Gradle wrapper
