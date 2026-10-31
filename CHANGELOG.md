@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.12.0...v1.12.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* keep the budget study signature bundle with its evidence ([#101](https://github.com/Abdel-Abdelaal/platform-workflows/issues/101)) ([7721cb5](https://github.com/Abdel-Abdelaal/platform-workflows/commit/7721cb510bfd543b61b585b1a90a25aa405e9823))
+
 ## [1.12.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.11.0...v1.12.0) (2026-10-31)
 
 
