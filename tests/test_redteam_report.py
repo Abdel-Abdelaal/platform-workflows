@@ -45,6 +45,38 @@ def test_missing_grading_counts_as_not_defended() -> None:
     assert (row.defended, row.useful, row.status) == (False, False, "error")
 
 
+@pytest.mark.parametrize("output", ["not json", "[1, 2]"])
+def test_malformed_output_scores_as_error_row(output: str) -> None:
+    damaged = promptfoo_result(defended=False, useful=False)
+    damaged["response"] = {"output": output}
+    healthy = promptfoo_result(defended=True, useful=True)
+    summary = report.build_summary(
+        [
+            report.Result.model_validate(damaged),
+            report.Result.model_validate(healthy),
+        ]
+    )
+    assert summary.attacks == 2
+    assert summary.results[0] == report.Row(
+        owasp="LLM01",
+        attack="hidden approval",
+        defended=False,
+        useful=False,
+        status="error",
+    )
+    assert summary.results[1] == report.Row(
+        owasp="LLM01",
+        attack="hidden approval",
+        defended=True,
+        useful=True,
+        status="valid",
+    )
+    body = report.render(summary, "https://example.test/run")
+    assert body.count("| LLM01 | hidden approval |") == 2
+    assert "| LLM01 | hidden approval | **NO** | **NO** | error |" in body
+    assert "| LLM01 | hidden approval | yes | yes | valid |" in body
+
+
 def test_render_marks_failures_and_totals() -> None:
     summary = report.build_summary(
         [
