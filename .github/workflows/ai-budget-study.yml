@@ -151,6 +151,7 @@ jobs:
           find "$RUNNER_TEMP/study" -maxdepth 1 \( -name 'record-*.json' -o -name 'analysis-*.json' -o -name ledger.jsonl \) -exec cp {} "$RUNNER_TEMP/evidence/" \;
           "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/evidence" --redact --no-banner --exit-code 1
       - name: Sign the evidence
+        id: sign
         if: always() && steps.scan.outcome == 'success'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -158,10 +159,21 @@ jobs:
           predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/analysis-budget-experiments.md#study-v1
           predicate-path: ${{ runner.temp }}/evidence/summary.json
           create-storage-record: false
+      - name: Keep the signature bundle with the evidence
+        # No storage record is created, so the bundle is the only copy of the
+        # signature; verify with gh attestation verify --bundle.
+        if: always() && steps.sign.outcome == 'success'
+        env:
+          BUNDLE: ${{ steps.sign.outputs.bundle-path }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/signature"
+          cp "$BUNDLE" "$RUNNER_TEMP/signature/attestation.sigstore.jsonl"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         # Nothing is published unless the secret scan passed.
         if: always() && steps.scan.outcome == 'success'
         with:
           name: ai-budget-study-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/evidence/
+          path: |
+            ${{ runner.temp }}/evidence/
+            ${{ runner.temp }}/signature/
           retention-days: 90

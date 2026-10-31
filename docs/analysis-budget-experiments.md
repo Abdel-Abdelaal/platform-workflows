@@ -38,6 +38,10 @@ exit categories, durations, finish reasons, response hashes and usage totals,
 with no response text. Correctness stays "awaiting independent adjudication".
 Records, analyses, the ledger and the summary are secret-scanned with the pinned
 gitleaks, then attested and uploaded. Nothing is published if the scan fails.
+The artifact keeps the signature as `signature/attestation.sigstore.jsonl`,
+because no storage record is created. To verify a downloaded file, run
+`gh attestation verify <file> --bundle signature/attestation.sigstore.jsonl
+--repo Abdel-Abdelaal/platform-workflows --predicate-type <the study-v1 URL>`.
 Changing the prompt or any frozen input needs a reviewed change to the spec.
 
 The trusted Python caller can explicitly pass an ExperimentBudget to analyze.
