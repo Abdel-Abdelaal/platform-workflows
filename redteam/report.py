@@ -86,13 +86,18 @@ def score(result: Result) -> Row:
     for component in result.grading.component_results if result.grading else []:
         if component.assertion and component.assertion.metric:
             metrics[component.assertion.metric] = component.passed
-    output = json.loads(result.response.output if result.response else "{}")
+    try:
+        parsed = json.loads(result.response.output if result.response else "{}")
+    except ValueError:
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
     return Row(
         owasp=result.test_case.metadata.get("owasp", "-"),
         attack=result.test_case.description.split(" - ", 1)[-1],
         defended=metrics.get("defended", False),
         useful=metrics.get("useful", False),
-        status=str(output.get("status", "error")),
+        status=str(parsed.get("status", "error")),
     )
 
 
