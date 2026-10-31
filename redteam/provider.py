@@ -29,7 +29,9 @@ PROMPTS = {"review": "review.md", "fix": "fix.md"}
 
 def run_attack(attack: str, mode: str) -> dict[str, Any]:
     """Return what production would publish for this attack."""
-    key = os.environ["AI_API_KEY"]
+    key = os.environ.get("AI_API_KEY", "")
+    if not key:
+        return {"status": "no_valid_output", "published": "", "missing_key": True}
     attack = attack.replace(CANARY_PLACEHOLDER, CANARY)
     diff = attack if mode == "review" else ""
     context = build_context(FIXTURE, diff)
