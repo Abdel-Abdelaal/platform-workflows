@@ -80,11 +80,20 @@ def test_missing_receipt_arguments_refused_before_analysis(
     analyze.assert_not_called()
 
 
-@pytest.mark.parametrize("manifest", ["not JSON", "[]"])
+@pytest.mark.parametrize(
+    ("manifest", "reason"),
+    [
+        ("not JSON", "experimental input manifest unavailable"),
+        ("[]", "experimental input manifest empty"),
+        ('[{"x":"y"}]', "experimental input manifest lacks path or status"),
+        ('[{"path":"a.py"}]', "experimental input manifest lacks path or status"),
+    ],
+)
 def test_invalid_manifest_preserves_refusal_record_without_analysis(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     manifest: str,
+    reason: str,
 ) -> None:
     argv = arguments(tmp_path)
     (tmp_path / "manifest.json").write_text(manifest)
@@ -96,6 +105,7 @@ def test_invalid_manifest_preserves_refusal_record_without_analysis(
     analyze.assert_not_called()
     record = json.loads((tmp_path / "record.json").read_text())
     assert record["evidence_gap"] is True
+    assert record["evidence_gap_reason"] == reason
     assert record["attempts"] == []
     assert record["configuration"]["requested_experiment_profile"] == "131072-3600"
     assert ai_telemetry.CURRENT.get() is None
@@ -121,3 +131,42 @@ def test_disabled_thinking_refused_before_analysis(
     with pytest.raises(SystemExit):
         ai_runner.main()
     analyze.assert_not_called()
+
+
+def test_omitting_the_profile_keeps_production_defaults(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "argv", arguments(tmp_path))
+    monkeypatch.setenv("AI_API_KEY", "fake-test-key")
+    seen: dict[str, object] = {}
+
+    def analyze(*_args: object, **kwargs: object) -> Analysis:
+        seen.update(kwargs)
+        return Analysis(summary="fake analysis")
+
+    monkeypatch.setattr(ai_runner, "analyze", analyze)
+    ai_runner.main()
+    assert seen["experiment"] is None
+    record = json.loads((tmp_path / "record.json").read_text())
+    assert "requested_experiment_profile" not in record["configuration"]
+
+
+def test_missing_key_marks_an_experiment_as_an_evidence_gap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv = [*arguments(tmp_path), "--experiment-profile", "32000-600"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    analyze = Mock()
+    monkeypatch.setattr(ai_runner, "analyze", analyze)
+    ai_runner.main()
+    analyze.assert_not_called()
+    record = json.loads((tmp_path / "record.json").read_text())
+    assert record["status"] == "skipped"
+    assert record["evidence_gap"] is True
+    assert record["evidence_gap_reason"] == "provider key missing"
+    assert json.loads((tmp_path / "analysis.json").read_text()) == {
+        "skipped": "AI_API_KEY missing"
+    }
