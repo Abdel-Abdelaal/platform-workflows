@@ -148,7 +148,13 @@ def delivered(pending: dict[str, object]) -> bool:
     tag = "ai-telemetry-" + str(pending["tag"])[-7:]
     try:
         assets = release_assets(tag)
-    except subprocess.SubprocessError:
+    except (
+        subprocess.SubprocessError,
+        ValidationError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ):
         return False
     names = {str(a["name"]) for a in assets}
     for name in sorted(names):

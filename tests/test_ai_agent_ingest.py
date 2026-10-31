@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 import yaml
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from tools import ai_agent_excerpt as excerpt
 from tools import ai_agent_ingest as ingest
@@ -324,6 +324,85 @@ def test_delivery_rejects_unsigned_or_invalid_subject(
 
     monkeypatch.setattr(ingest, "gh", fake_cli)
     assert ingest.delivered(pending) is True
+
+
+def real_validation_error() -> ValidationError:
+    try:
+        TypeAdapter(int).validate_python("x", strict=True)
+    except ValidationError as caught:
+        return caught
+    raise AssertionError
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        subprocess.CalledProcessError(1, ["gh"]),
+        subprocess.TimeoutExpired(["gh"], 60),
+        real_validation_error(),
+        KeyError("id"),
+        json.JSONDecodeError("{", "doc", 0),
+        TypeError(),
+        ValueError(),
+    ],
+)
+def test_delivery_api_failures_return_false_for_retry(
+    monkeypatch: pytest.MonkeyPatch, failure: BaseException
+) -> None:
+    pending: dict[str, object] = {
+        "batch_id": "a" * 64,
+        "tag": "ai-agent-incoming-2026-10",
+    }
+    monkeypatch.setattr(ingest, "release_assets", Mock(side_effect=failure))
+    assert ingest.delivered(pending) is False
+
+
+def test_delivery_transient_api_payloads_return_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pending: dict[str, object] = {
+        "batch_id": "a" * 64,
+        "tag": "ai-agent-incoming-2026-10",
+    }
+    monkeypatch.setattr(
+        ingest, "github_api", Mock(return_value={"message": "Not Found"})
+    )
+    assert ingest.delivered(pending) is False
+    monkeypatch.setattr(ingest, "github_api", Mock(return_value={"id": "not-an-int"}))
+    assert ingest.delivered(pending) is False
+
+
+def test_delivery_widening_never_swallows_tamper_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(AgentEvidenceError):
+        ingest.delivered({"batch_id": "short", "tag": "ai-agent-incoming-2026-10"})
+    digest = "a" * 64
+    pending: dict[str, object] = {
+        "batch_id": digest,
+        "tag": "ai-agent-incoming-2026-10",
+    }
+    name = f"agent-batch-{digest}-123.json"
+    monkeypatch.setattr(
+        ingest,
+        "release_assets",
+        Mock(return_value=[{"name": name}, {"name": name[:-5] + ".sigstore.json"}]),
+    )
+
+    def fake_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
+        if args[0] == "release":
+            path = (
+                Path(args[args.index("--dir") + 1]) / args[args.index("--pattern") + 1]
+            )
+            path.write_text(canonical({"batch_id": "b" * 64}))
+        else:
+            assert "--source-ref" in args
+            assert "--predicate-type" in args
+        return subprocess.CompletedProcess(args, 0, "")
+
+    monkeypatch.setattr(ingest, "gh", fake_cli)
+    with pytest.raises(AgentEvidenceError):
+        ingest.delivered(pending)
 
 
 def test_release_asset_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
