@@ -10,6 +10,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -71,6 +72,21 @@ EXPERIMENT_PROFILES = {
     for output in EXPERIMENT_OUTPUT_TOKENS
     for timeout in EXPERIMENT_TIMEOUTS
 }
+
+
+def experiment_manifest_gap(record: dict[str, Any]) -> str | None:
+    """Name why the input manifest can't back an experiment, or None if it can."""
+    if not record["configuration"]["manifest_complete"]:
+        return "experimental input manifest unavailable"
+    entries = record["context_manifest"]
+    if not entries:
+        return "experimental input manifest empty"
+    if not all(
+        isinstance(entry.get("path"), str) and isinstance(entry.get("status"), str)
+        for entry in entries
+    ):
+        return "experimental input manifest lacks path or status"
+    return None
 
 
 class MissingRunnerError(Exception):
@@ -450,15 +466,11 @@ def main() -> None:
     token = ai_telemetry.CURRENT.set(record if args.record else None)
     try:
         ai_telemetry.attach_manifest(record, context, args.manifest)
-        if experiment is not None and (
-            not record["configuration"]["manifest_complete"]
-            or not record["context_manifest"]
-        ):
-            record.update(
-                evidence_gap=True,
-                evidence_gap_reason="experimental input manifest unavailable",
-            )
-            raise AnalysisUnavailableError
+        if experiment is not None:
+            reason = experiment_manifest_gap(record)
+            if reason is not None:
+                record.update(evidence_gap=True, evidence_gap_reason=reason)
+                raise AnalysisUnavailableError
         diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         record["configuration"].update(
             diff_sha256=ai_telemetry.digest(diff), diff_characters=len(diff)
@@ -466,6 +478,11 @@ def main() -> None:
         key = os.environ.get("AI_API_KEY", "")
         if not key:
             record.update(status="skipped", skip_reason="AI_API_KEY missing")
+            if experiment is not None:
+                # An unrun study condition must never read as a completed one.
+                record.update(
+                    evidence_gap=True, evidence_gap_reason="provider key missing"
+                )
             args.output.write_text(
                 '{"skipped": "AI_API_KEY missing"}', encoding="utf-8"
             )

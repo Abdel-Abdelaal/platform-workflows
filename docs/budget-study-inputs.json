@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "frozen_on": "2026-10-31",
+  "task": "Advisory review of agent-dispatcher#48 (timed-out edits go to gate and review)",
+  "repository": "Abdel-Abdelaal/agent-dispatcher",
+  "base": "48dc90ed9f608bfc0b184e3189367a46a8f894ec",
+  "head": "b21f22746c2aa8500e8e0ed47953e3221c5cf1d5",
+  "handbook": {
+    "repository": "Abdel-Abdelaal/.github",
+    "commit": "76ee6a7ba52b78de1b3e729284663c97783d9b72"
+  },
+  "prompt": "prompts/review.md",
+  "sha256": {
+    "context": "4be7d80634bdb08bf3a52953519be4a53d9c8979704e11746345acf3647d48c3",
+    "manifest": "44a4aefbb7ee4df9d3f7ec89a11b38c23c218337b9eef643fe4f9890d7267e64",
+    "diff": "0fe8c9ba29b5742edd23494b5af8d673312f7b08442f679fe9c9be93e7b703f8",
+    "prompt": "cd57df78f364f65c10c6db550b662189fbf5810b27d58bf04faaee3fc2bedf44"
+  }
+}
