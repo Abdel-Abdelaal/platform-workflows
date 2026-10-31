@@ -290,6 +290,14 @@ def test_workflow_is_manual_main_only_and_keeps_the_key_out_of_dry_runs() -> Non
             assert "steps.scan.outcome == 'success'" in step["if"]
         if "checkout" in step.get("uses", ""):
             assert step["with"]["persist-credentials"] is False
+    upload = next(step for step in steps if "upload-artifact" in step.get("uses", ""))
+    assert "signature/" in upload["with"]["path"]
+    keep = next(
+        step
+        for step in steps
+        if step.get("name") == "Keep the signature bundle with the evidence"
+    )
+    assert keep["if"] == "always() && steps.sign.outcome == 'success'"
     run = next(step for step in steps if step.get("id") == "run")
     assert run["env"]["AI_BASE_URL"] == "https://token-plan-ams.xiaomimimo.com/v1"
     assert "--thinking enabled" in run["run"]
