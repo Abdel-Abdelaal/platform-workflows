@@ -16,6 +16,30 @@ The manifest preflight checks structure; it does not authenticate source entries
 or bind them to prepared input bytes. The future trusted workflow must freeze and
 verify context, prompt, manifest and diff hashes before invoking this CLI.
 
+## Trusted workflow
+
+`.github/workflows/ai-budget-study.yml` is that workflow. It runs only by manual
+dispatch from `main`. Its inputs are frozen in `docs/budget-study-inputs.json`:
+the review of agent-dispatcher#48 at pinned base, head and handbook commits, the
+review prompt, and the SHA-256 of the exact context, manifest, diff and prompt
+bytes. Each run rebuilds the inputs with `tools.ai_context` and
+`tools.budget_study verify` stops it before any provider call if a hash differs.
+
+With `live` unset (the default) the run only builds and verifies inputs and
+reports every condition as unattempted; the provider key isn't exposed. With
+`live` set, it runs each of the four profiles once in a random order seeded by
+the run id and attempt, with thinking enabled and the exact Amsterdam Token Plan
+endpoint. If a profile ends without valid output within 120 seconds, the provider
+refused it (quota, credentials or endpoint), so the run stops and records the
+rest as unattempted instead of retrying.
+
+The summary lists every planned condition with fixed-shape metadata: status,
+exit categories, durations, finish reasons, response hashes and usage totals,
+with no response text. Correctness stays "awaiting independent adjudication".
+Records, analyses, the ledger and the summary are secret-scanned with the pinned
+gitleaks, then attested and uploaded. Nothing is published if the scan fails.
+Changing the prompt or any frozen input needs a reviewed change to the spec.
+
 The trusted Python caller can explicitly pass an ExperimentBudget to analyze.
 Only `output_tokens` values of 32000 or 131072 crossed with `timeout_seconds`
 values of 600 or 3600 are

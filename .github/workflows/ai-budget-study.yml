@@ -1,0 +1,167 @@
+# Trusted manual run of the frozen output/deadline budget study
+# (docs/analysis-budget-experiments.md). Inputs are public, pinned by commit and
+# verified against frozen hashes before any provider call. A dry run builds and
+# verifies the inputs without the provider key. Every planned condition is
+# reported, including failed and unattempted ones.
+name: AI budget study
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: Call the provider (otherwise build and verify inputs only)
+        type: boolean
+        default: false
+permissions: {}
+concurrency:
+  group: ai-budget-study
+  cancel-in-progress: false
+jobs:
+  study:
+    name: Budget study
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Four profiles of at most 3600 s each, plus setup and publication.
+    timeout-minutes: 280
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: platform
+      - name: Read frozen inputs
+        id: spec
+        working-directory: platform
+        run: |
+          {
+            echo "repository=$(jq -er .repository docs/budget-study-inputs.json)"
+            echo "base=$(jq -er .base docs/budget-study-inputs.json)"
+            echo "head=$(jq -er .head docs/budget-study-inputs.json)"
+            echo "handbook=$(jq -er .handbook.repository docs/budget-study-inputs.json)"
+            echo "handbook_commit=$(jq -er .handbook.commit docs/budget-study-inputs.json)"
+            echo "prompt=$(jq -er .prompt docs/budget-study-inputs.json)"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.spec.outputs.repository }}
+          ref: ${{ steps.spec.outputs.head }}
+          path: repository
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.spec.outputs.handbook }}
+          ref: ${{ steps.spec.outputs.handbook_commit }}
+          path: handbook
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+      - name: Install locked tooling
+        working-directory: platform
+        run: |
+          uv sync --locked --no-dev
+          npm ci --no-audit --no-fund
+          echo "$GITHUB_WORKSPACE/platform/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Build and verify frozen inputs before any provider call
+        working-directory: platform
+        env:
+          BASE: ${{ steps.spec.outputs.base }}
+          HEAD: ${{ steps.spec.outputs.head }}
+          PROMPT: ${{ steps.spec.outputs.prompt }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/study"
+          test "$(git -C "$GITHUB_WORKSPACE/repository" rev-parse HEAD)" = "$HEAD"
+          git -C "$GITHUB_WORKSPACE/repository" diff --no-color --no-ext-diff --no-renames --full-index "$BASE" "$HEAD" > "$RUNNER_TEMP/study/pr.diff"
+          uv run --locked --no-dev python -m tools.ai_context --repository "$GITHUB_WORKSPACE/repository" --handbook "$GITHUB_WORKSPACE/handbook" --diff "$RUNNER_TEMP/study/pr.diff" --output "$RUNNER_TEMP/study/context.md" --manifest "$RUNNER_TEMP/study/context-manifest.json"
+          uv run --locked --no-dev python -m tools.budget_study verify --spec docs/budget-study-inputs.json --context "$RUNNER_TEMP/study/context.md" --manifest "$RUNNER_TEMP/study/context-manifest.json" --diff "$RUNNER_TEMP/study/pr.diff" --prompt "$PROMPT" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Install verified production output scanner
+        if: inputs.live
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar --extract --gzip --file "$RUNNER_TEMP/gitleaks.tar.gz" --directory "$RUNNER_TEMP/gitleaks"
+      - name: Run each profile once in recorded random order
+        if: inputs.live
+        id: run
+        working-directory: platform
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_OUTPUT_SECRET_SCANNER: ${{ runner.temp }}/gitleaks/gitleaks
+          # Experimental mode requires the exact Amsterdam Token Plan endpoint.
+          AI_BASE_URL: https://token-plan-ams.xiaomimimo.com/v1
+          MODE: budget-study
+          HEAD_SHA: ${{ steps.spec.outputs.head }}
+          TOOLING_COMMIT: ${{ github.sha }}
+          HANDBOOK_SHA: ${{ steps.spec.outputs.handbook_commit }}
+          SOURCE_CHECKOUT_SHA: ${{ steps.spec.outputs.head }}
+          PROMPT: ${{ steps.spec.outputs.prompt }}
+          SEED: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          if [ -z "$AI_API_KEY" ]; then
+            echo 'reason=provider key not configured' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          out="$RUNNER_TEMP/study"
+          reason='stopped after an early provider refusal (quota, credentials or endpoint)'
+          stopped=false
+          for profile in $(uv run --locked --no-dev python -m tools.budget_study plan --seed "$SEED"); do
+            set +e
+            timeout --kill-after=60 3660 uv run --locked --no-dev python -m tools.ai_runner \
+              --context "$out/context.md" --prompt "$PROMPT" --output "$out/analysis-$profile.json" \
+              --record "$out/record-$profile.json" --manifest "$out/context-manifest.json" \
+              --diff "$out/pr.diff" --thinking enabled --experiment-profile "$profile"
+            code=$?
+            set -e
+            decision=$(uv run --locked --no-dev python -m tools.budget_study record --profile "$profile" --record "$out/record-$profile.json" --exit-code "$code" --ledger "$out/ledger.jsonl")
+            echo "$profile exit=$code next=$decision" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$decision" = stop ]; then
+              stopped=true
+              break
+            fi
+          done
+          if [ "$stopped" = true ]; then
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          else
+            echo 'reason=not reached' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Summarize every planned condition
+        if: always() && steps.spec.outcome == 'success'
+        working-directory: platform
+        env:
+          SEED: ${{ github.run_id }}-${{ github.run_attempt }}
+          REASON: ${{ inputs.live && (steps.run.outputs.reason || 'run step failed') || 'dry run' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/study"
+          uv run --locked --no-dev python -m tools.budget_study summarize --spec docs/budget-study-inputs.json --seed "$SEED" --ledger "$RUNNER_TEMP/study/ledger.jsonl" --unattempted-reason "$REASON" --output "$RUNNER_TEMP/study/summary.json"
+          { echo '```json'; cat "$RUNNER_TEMP/study/summary.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Secret-scan evidence before publication
+        id: scan
+        if: always() && inputs.live && steps.spec.outcome == 'success'
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          cp "$RUNNER_TEMP/study/summary.json" "$RUNNER_TEMP/evidence/"
+          find "$RUNNER_TEMP/study" -maxdepth 1 \( -name 'record-*.json' -o -name 'analysis-*.json' -o -name ledger.jsonl \) -exec cp {} "$RUNNER_TEMP/evidence/" \;
+          "$RUNNER_TEMP/gitleaks/gitleaks" dir "$RUNNER_TEMP/evidence" --redact --no-banner --exit-code 1
+      - name: Sign the evidence
+        if: always() && steps.scan.outcome == 'success'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/evidence/*.json*
+          predicate-type: https://github.com/Abdel-Abdelaal/platform-workflows/blob/main/docs/analysis-budget-experiments.md#study-v1
+          predicate-path: ${{ runner.temp }}/evidence/summary.json
+          create-storage-record: false
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        # Nothing is published unless the secret scan passed.
+        if: always() && steps.scan.outcome == 'success'
+        with:
+          name: ai-budget-study-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/evidence/
+          retention-days: 90
