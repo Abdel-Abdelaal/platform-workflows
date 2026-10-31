@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.12.1](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.12.0...v1.12.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* keep the budget study signature bundle with its evidence ([#101](https://github.com/Abdel-Abdelaal/platform-workflows/issues/101)) ([7721cb5](https://github.com/Abdel-Abdelaal/platform-workflows/commit/7721cb510bfd543b61b585b1a90a25aa405e9823))
+* retry agent telemetry delivery when the release API returns bad data ([#106](https://github.com/Abdel-Abdelaal/platform-workflows/issues/106)) ([1e544a0](https://github.com/Abdel-Abdelaal/platform-workflows/commit/1e544a06f29c00591322f6472e61321fd9b9e79f))
+* return a structured skip when AI_API_KEY is missing in the red-team provider ([#104](https://github.com/Abdel-Abdelaal/platform-workflows/issues/104)) ([f50e52c](https://github.com/Abdel-Abdelaal/platform-workflows/commit/f50e52ce0a70e5a3e36657964705ce07d39b84f3))
+* score malformed provider output as an error row ([#105](https://github.com/Abdel-Abdelaal/platform-workflows/issues/105)) ([6e8fc2d](https://github.com/Abdel-Abdelaal/platform-workflows/commit/6e8fc2da90354c0f77832a2b67a8bc1adae9c69f))
+
 ## [1.12.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.11.0...v1.12.0) (2026-10-31)
 
 
