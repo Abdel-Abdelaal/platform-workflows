@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.12.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.11.0...v1.12.0) (2026-10-31)
+
+
+### Features
+
+* add the trusted manual budget study workflow ([#99](https://github.com/Abdel-Abdelaal/platform-workflows/issues/99)) ([3b72d61](https://github.com/Abdel-Abdelaal/platform-workflows/commit/3b72d618ddbb823561d92155a5d79d5ff7f711e3))
+* classify signed security updates from their exact versions ([#97](https://github.com/Abdel-Abdelaal/platform-workflows/issues/97)) ([a6d3983](https://github.com/Abdel-Abdelaal/platform-workflows/commit/a6d3983696e37ade884bf0ea67a76aeb57c4c782))
+* maintain compatible dependency prs from trusted fleet controller ([#95](https://github.com/Abdel-Abdelaal/platform-workflows/issues/95)) ([cec01c6](https://github.com/Abdel-Abdelaal/platform-workflows/commit/cec01c66b5a6ee421bbea6b24fd3593cb28f2399))
+* prepare explicit analysis budget CLI ([#91](https://github.com/Abdel-Abdelaal/platform-workflows/issues/91)) ([0390e9c](https://github.com/Abdel-Abdelaal/platform-workflows/commit/0390e9c04e2fed47bd1e7e353f985864ae03af22))
+
+
+### Bug Fixes
+
+* patch red-team dependency vulnerabilities ([#92](https://github.com/Abdel-Abdelaal/platform-workflows/issues/92)) ([00f4575](https://github.com/Abdel-Abdelaal/platform-workflows/commit/00f4575145f81ee99bd7af6d0dfe84ff10d54bc1))
+
 ## [1.11.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.10.0...v1.11.0) (2026-10-30)
 
 
