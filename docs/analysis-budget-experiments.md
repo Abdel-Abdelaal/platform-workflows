@@ -5,6 +5,17 @@ live-dispatch workflow, change production callers or establish a quality gain.
 Do not invoke it with a real key through an ad hoc launcher. A real study still
 needs a reviewed trusted workflow, frozen scanned inputs and signed evidence.
 
+The runner CLI accepts an explicit `--experiment-profile` of `32000-600`,
+`32000-3600`, `131072-600` or `131072-3600` for that future trusted workflow.
+It requires an evidence record, a well-formed nonempty input manifest and thinking
+enabled before invoking analysis. Refused manifests retain the intended profile
+and an evidence-gap record. Omitting the option preserves production defaults.
+This CLI preparation alone does not authorize a live local launcher or establish
+that the endpoint accepts every requested profile.
+The manifest preflight checks structure; it does not authenticate source entries
+or bind them to prepared input bytes. The future trusted workflow must freeze and
+verify context, prompt, manifest and diff hashes before invoking this CLI.
+
 The trusted Python caller can explicitly pass an ExperimentBudget to analyze.
 Only `output_tokens` values of 32000 or 131072 crossed with `timeout_seconds`
 values of 600 or 3600 are

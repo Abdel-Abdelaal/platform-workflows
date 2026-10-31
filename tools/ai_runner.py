@@ -44,6 +44,10 @@ SAFE_ENVIRONMENT = {
 }
 
 
+EXPERIMENT_OUTPUT_TOKENS = (32000, 131072)
+EXPERIMENT_TIMEOUTS = (600, 3600)
+
+
 @dataclass(frozen=True)
 class ExperimentBudget:
     """Explicit limits for the frozen read-only budget study, never a default."""
@@ -54,12 +58,19 @@ class ExperimentBudget:
     def __post_init__(self) -> None:
         """Reject arbitrary or boolean limits before provider execution."""
         for value, allowed in (
-            (self.output_tokens, (32000, 131072)),
-            (self.timeout_seconds, (600, 3600)),
+            (self.output_tokens, EXPERIMENT_OUTPUT_TOKENS),
+            (self.timeout_seconds, EXPERIMENT_TIMEOUTS),
         ):
             if type(value) is not int or value not in allowed:
                 message = "Unsupported experiment budget"
                 raise ValueError(message)
+
+
+EXPERIMENT_PROFILES = {
+    f"{output}-{timeout}": ExperimentBudget(output, timeout)
+    for output in EXPERIMENT_OUTPUT_TOKENS
+    for timeout in EXPERIMENT_TIMEOUTS
+}
 
 
 class MissingRunnerError(Exception):
@@ -410,12 +421,21 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--diff", type=Path)
     parser.add_argument(
+        "--experiment-profile",
+        choices=EXPERIMENT_PROFILES,
+    )
+    parser.add_argument(
         "--thinking",
         choices=["enabled", "disabled"],
         default="enabled",
         help="disable for whole-repository context so the budget reaches the JSON",
     )
     args = parser.parse_args()
+    experiment = None
+    if args.experiment_profile:
+        if not args.record or not args.manifest or args.thinking != "enabled":
+            parser.error("experiments require a record, input manifest and thinking")
+        experiment = EXPERIMENT_PROFILES[args.experiment_profile]
     context = args.context.read_text(encoding="utf-8")
     prompt = args.prompt.read_text(encoding="utf-8")
     record = ai_telemetry.new_record(
@@ -423,9 +443,22 @@ def main() -> None:
     )
     record["configuration"]["prompt_file"] = args.prompt.name
     record["configuration"]["system_prompt_sha256"] = ai_telemetry.digest(SYSTEM_PROMPT)
+    if args.experiment_profile:
+        record["configuration"]["requested_experiment_profile"] = (
+            args.experiment_profile
+        )
     token = ai_telemetry.CURRENT.set(record if args.record else None)
     try:
         ai_telemetry.attach_manifest(record, context, args.manifest)
+        if experiment is not None and (
+            not record["configuration"]["manifest_complete"]
+            or not record["context_manifest"]
+        ):
+            record.update(
+                evidence_gap=True,
+                evidence_gap_reason="experimental input manifest unavailable",
+            )
+            raise AnalysisUnavailableError
         diff = args.diff.read_text(encoding="utf-8") if args.diff else ""
         record["configuration"].update(
             diff_sha256=ai_telemetry.digest(diff), diff_characters=len(diff)
@@ -437,7 +470,13 @@ def main() -> None:
                 '{"skipped": "AI_API_KEY missing"}', encoding="utf-8"
             )
             return
-        result = analyze(context, prompt, key, thinking=args.thinking == "enabled")
+        result = analyze(
+            context,
+            prompt,
+            key,
+            thinking=args.thinking == "enabled",
+            experiment=experiment,
+        )
         ai_telemetry.complete(record, result, diff)
         args.output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     finally:
