@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.11.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.10.0...v1.11.0) (2026-10-30)
+
+
+### Features
+
+* authorize verified autonomous audit intake ([#72](https://github.com/Abdel-Abdelaal/platform-workflows/issues/72)) ([9e5f6c8](https://github.com/Abdel-Abdelaal/platform-workflows/commit/9e5f6c8178286b827371b2b0e12a13cf06f01b82))
+* prepare bounded analysis budget experiments ([#85](https://github.com/Abdel-Abdelaal/platform-workflows/issues/85)) ([f449941](https://github.com/Abdel-Abdelaal/platform-workflows/commit/f449941ab96fd56e6443d0fbc14a947b89c9b032))
+
+
+### Bug Fixes
+
+* activate reviewed source-context credential redaction ([#87](https://github.com/Abdel-Abdelaal/platform-workflows/issues/87)) ([5f38dac](https://github.com/Abdel-Abdelaal/platform-workflows/commit/5f38daccd8b114293bd486da44f9c9e31e4feb30))
+* avoid auxiliary model requests for analysis session titles ([#84](https://github.com/Abdel-Abdelaal/platform-workflows/issues/84)) ([5cf2a08](https://github.com/Abdel-Abdelaal/platform-workflows/commit/5cf2a08453dd5d8a2924e203b8e195e6368969bc))
+* distinguish quoted injection evidence from unsafe verdicts ([#66](https://github.com/Abdel-Abdelaal/platform-workflows/issues/66)) ([1505f5b](https://github.com/Abdel-Abdelaal/platform-workflows/commit/1505f5b4695fdf457fa6e58827406daf7db42c5c))
+* include telemetry identities in generated releases ([#89](https://github.com/Abdel-Abdelaal/platform-workflows/issues/89)) ([7b14982](https://github.com/Abdel-Abdelaal/platform-workflows/commit/7b1498268556bdf5e415c87ddb452c3032aecee8))
+* make analysis retries follow completion evidence ([#78](https://github.com/Abdel-Abdelaal/platform-workflows/issues/78)) ([930b336](https://github.com/Abdel-Abdelaal/platform-workflows/commit/930b3361ee26aec1b79572f6bed05762874542ba))
+* preserve omitted agent payloads and privacy metadata ([#65](https://github.com/Abdel-Abdelaal/platform-workflows/issues/65)) ([1cc5bda](https://github.com/Abdel-Abdelaal/platform-workflows/commit/1cc5bda594cff73aab3f10a51d3c9a49463fec58))
+* provision approved maintenance credentials during public enrollment ([#90](https://github.com/Abdel-Abdelaal/platform-workflows/issues/90)) ([ae5ea0a](https://github.com/Abdel-Abdelaal/platform-workflows/commit/ae5ea0a2b38a944d19872bc8c398994c9b058749))
+* redact source credentials echoed without assignment context ([#86](https://github.com/Abdel-Abdelaal/platform-workflows/issues/86)) ([7bfc382](https://github.com/Abdel-Abdelaal/platform-workflows/commit/7bfc382b08ab8c5cf0a38362f5cead0954ec69be))
+
 ## [1.10.0](https://github.com/Abdel-Abdelaal/platform-workflows/compare/v1.9.1...v1.10.0) (2026-10-26)
 
 ### Features

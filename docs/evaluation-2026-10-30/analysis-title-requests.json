@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-30T04:39:17.858722+00:00",
+  "runtime": "OpenCode 1.18.35 existing pinned binary",
+  "live_inference": false,
+  "credential": "dummy only",
+  "endpoint": "localhost synthetic only",
+  "cases": [
+    {
+      "case": "automatic_title",
+      "exit_code": 0,
+      "request_count": 2,
+      "requests": [
+        {
+          "model": "mimo-v2.6-flash",
+          "max_tokens": 32000,
+          "title_instruction_seen": true,
+          "message_count": 3
+        },
+        {
+          "model": "mimo-v2.6-flash",
+          "max_tokens": 32000,
+          "title_instruction_seen": false,
+          "message_count": 2
+        }
+      ],
+      "cli_step_finish_count": 1,
+      "cli_step_tokens": [
+        {
+          "total": 2,
+          "input": 1,
+          "output": 1,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "fixed_title",
+      "exit_code": 0,
+      "request_count": 1,
+      "requests": [
+        {
+          "model": "mimo-v2.6-flash",
+          "max_tokens": 32000,
+          "title_instruction_seen": false,
+          "message_count": 2
+        }
+      ],
+      "cli_step_finish_count": 1,
+      "cli_step_tokens": [
+        {
+          "total": 2,
+          "input": 1,
+          "output": 1,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        }
+      ]
+    }
+  ],
+  "limits": "Client-side call-count comparison only; no real provider usage or quality gain measured. No claim that other internal requests or compaction are covered."
+}

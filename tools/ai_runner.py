@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -17,6 +18,7 @@ from tools.ai_contract import Analysis, extract_text, parse_analysis
 from tools.ai_output_scan import REDACTED as SCANNER_REDACTED
 from tools.ai_output_scan import OutputScanError, scan_events, scanner_path
 from tools.ai_redaction import redact_events
+from tools.ai_retry import validation_feedback
 
 MODEL = "mimo/mimo-v2.6-flash"
 BASE_URL = "https://token-plan-ams.xiaomimimo.com/v1"
@@ -42,6 +44,24 @@ SAFE_ENVIRONMENT = {
 }
 
 
+@dataclass(frozen=True)
+class ExperimentBudget:
+    """Explicit limits for the frozen read-only budget study, never a default."""
+
+    output_tokens: int
+    timeout_seconds: int
+
+    def __post_init__(self) -> None:
+        """Reject arbitrary or boolean limits before provider execution."""
+        for value, allowed in (
+            (self.output_tokens, (32000, 131072)),
+            (self.timeout_seconds, (600, 3600)),
+        ):
+            if type(value) is not int or value not in allowed:
+                message = "Unsupported experiment budget"
+                raise ValueError(message)
+
+
 class MissingRunnerError(Exception):
     """Install the pinned OpenCode CLI before running coding analysis."""
 
@@ -50,16 +70,34 @@ class AnalysisUnavailableError(Exception):
     """Bounded analysis attempts failed; raw provider output stays private."""
 
 
+class CompletionBudgetExhaustedError(AnalysisUnavailableError):
+    """The provider exhausted its completion budget without returning an answer."""
+
+
 class SecretPatchError(ValueError):
     """A secret-bearing patch must not become an executable replacement patch."""
 
 
-def safe_events(events: str, key: str, scanner: Path | None) -> tuple[str, int | None]:
+def parse_response(events: str, *, redactions: int | None = None) -> Analysis:
+    """Distinguish a spent completion budget from recoverable output errors."""
+    text = extract_text(events)
+    steps = ai_telemetry.step_parts(events)
+    if not text.strip() and steps and steps[-1].get("reason") == "length":
+        raise CompletionBudgetExhaustedError
+    analysis = parse_analysis(text)
+    if redactions and SCANNER_REDACTED in analysis.patch:
+        raise SecretPatchError
+    return analysis
+
+
+def safe_events(
+    events: str, key: str, scanner: Path | None, *, context: str = ""
+) -> tuple[str, int | None]:
     """Always remove the known key, then optionally scan other decoded secrets."""
     cleaned = redact_events(events, key)
     if scanner is None:
         return cleaned, None
-    return scan_events(cleaned, scanner)
+    return scan_events(cleaned, scanner, context=context)
 
 
 def prepare_output_scanner() -> Path | None:
@@ -111,8 +149,20 @@ def model_options(*, thinking: bool) -> dict[str, object]:
     }
 
 
-def runner_config(*, thinking: bool = True) -> dict[str, object]:
+def runner_config(
+    *, thinking: bool = True, experiment: ExperimentBudget | None = None
+) -> dict[str, object]:
     """Fix both primary and small models to the owner's selected Flash model."""
+    options = model_options(thinking=thinking)
+    base_url = os.environ.get("AI_BASE_URL", BASE_URL)
+    output_tokens = 32768
+    if experiment is not None:
+        if not thinking or base_url.rstrip("/") != BASE_URL:
+            message = "Experiments require thinking and the Token Plan endpoint"
+            raise ValueError(message)
+        options = {"thinking": {"type": "enabled"}}
+        base_url = BASE_URL
+        output_tokens = experiment.output_tokens
     return {
         "$schema": "https://opencode.ai/config.json",
         "model": MODEL,
@@ -125,14 +175,14 @@ def runner_config(*, thinking: bool = True) -> dict[str, object]:
                 "npm": "@ai-sdk/openai-compatible",
                 "name": "Xiaomi MiMo Flash",
                 "options": {
-                    "baseURL": os.environ.get("AI_BASE_URL", BASE_URL),
+                    "baseURL": base_url,
                     "apiKey": "{env:AI_API_KEY}",
                 },
                 "models": {
                     "mimo-v2.6-flash": {
                         "name": "MiMo 2.6 Flash",
-                        "limit": {"context": 1048576, "output": 32768},
-                        "options": model_options(thinking=thinking),
+                        "limit": {"context": 1048576, "output": output_tokens},
+                        "options": options,
                     }
                 },
             }
@@ -152,7 +202,11 @@ def runner_config(*, thinking: bool = True) -> dict[str, object]:
 
 
 def isolated_environment(
-    workspace: Path, key: str, *, thinking: bool = True
+    workspace: Path,
+    key: str,
+    *,
+    thinking: bool = True,
+    experiment: ExperimentBudget | None = None,
 ) -> dict[str, str]:
     """Pass OS plumbing and only the AI key, excluding GitHub and App credentials."""
     environment = {
@@ -163,7 +217,9 @@ def isolated_environment(
     environment.update(
         {
             "AI_API_KEY": key,
-            "OPENCODE_CONFIG_CONTENT": json.dumps(runner_config(thinking=thinking)),
+            "OPENCODE_CONFIG_CONTENT": json.dumps(
+                runner_config(thinking=thinking, experiment=experiment)
+            ),
             "XDG_CONFIG_HOME": str(workspace / "config"),
             "XDG_DATA_HOME": str(workspace / "data"),
             "XDG_CACHE_HOME": str(workspace / "cache"),
@@ -175,21 +231,69 @@ def isolated_environment(
             "OPENCODE_DISABLE_MODELS_FETCH": "true",
         }
     )
+    if experiment is not None:
+        environment["OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX"] = str(
+            experiment.output_tokens
+        )
     return environment
 
 
-def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> Analysis:
+def _analysis_setup(
+    *, thinking: bool, experiment: ExperimentBudget | None
+) -> tuple[int, int, Path | None]:
+    """Keep production defaults; fail closed before experimental credential use."""
+    if experiment is None:
+        return 3, 600, prepare_output_scanner()
+    record = ai_telemetry.CURRENT.get()
+    if record is None:
+        raise AnalysisUnavailableError
+    attempt_limit = 1
+    record["configuration"]["experiment_budget"] = {
+        "output_tokens": experiment.output_tokens,
+        "timeout_seconds": experiment.timeout_seconds,
+        "attempt_limit": attempt_limit,
+        "correctness": "awaiting independent adjudication",
+    }
+    try:
+        runner_config(thinking=thinking, experiment=experiment)
+    except ValueError:
+        record.update(
+            evidence_gap=True, evidence_gap_reason="experiment configuration refused"
+        )
+        raise AnalysisUnavailableError from None
+    scanner = prepare_output_scanner()
+    if scanner is None:
+        record.update(
+            evidence_gap=True,
+            evidence_gap_reason="experimental output secret scanner unavailable",
+        )
+        raise AnalysisUnavailableError
+    return attempt_limit, experiment.timeout_seconds, scanner
+
+
+def analyze(
+    context: str,
+    prompt: str,
+    key: str,
+    *,
+    thinking: bool = True,
+    experiment: ExperimentBudget | None = None,
+) -> Analysis:
     """Return validated analysis without executing project config or model tools."""
     executable = shutil.which("opencode")
     if executable is None:
         raise MissingRunnerError
-    scanner = prepare_output_scanner()
+    attempt_limit, timeout_seconds, scanner = _analysis_setup(
+        thinking=thinking, experiment=experiment
+    )
     with tempfile.TemporaryDirectory(prefix="showcase-ai-") as directory:
         workspace = Path(directory)
         command = [
             executable,
             "run",
             "--pure",
+            "--title",
+            "Showcase analysis",
             "--agent",
             "review",
             "--format",
@@ -199,7 +303,7 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
         ]
         data = "\n--- BEGIN UNTRUSTED REPOSITORY DATA ---\n" + context
         data += "\n--- END UNTRUSTED REPOSITORY DATA ---\n"
-        for attempt in range(3):
+        for attempt in range(attempt_limit):
             started = time.monotonic()
             events = ""
             sanitized = False
@@ -208,19 +312,34 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 result = subprocess.run(
                     command,
                     cwd=workspace,
-                    env=isolated_environment(workspace, key, thinking=thinking),
+                    env=isolated_environment(
+                        workspace, key, thinking=thinking, experiment=experiment
+                    ),
                     check=True,
                     capture_output=True,
                     input=data,
                     text=True,
                     encoding="utf-8",
-                    timeout=600,
+                    timeout=timeout_seconds,
                 )
-                events, redactions = safe_events(result.stdout, key, scanner)
+                events, redactions = safe_events(
+                    result.stdout, key, scanner, context=context
+                )
                 sanitized = True
-                analysis = parse_analysis(extract_text(events))
-                if redactions and SCANNER_REDACTED in analysis.patch:
-                    raise SecretPatchError
+                analysis = parse_response(events, redactions=redactions)
+            except CompletionBudgetExhaustedError as error:
+                ai_telemetry.record_attempt(
+                    events,
+                    time.monotonic() - started,
+                    error,
+                    prompt=command[-1],
+                    secret_redactions=redactions,
+                )
+                sys.stderr.write(
+                    "Provider completion budget exhausted without an answer; "
+                    "identical retries skipped.\n"
+                )
+                raise
             except OutputScanError as error:
                 ai_telemetry.record_attempt(
                     "", time.monotonic() - started, error, prompt=command[-1]
@@ -245,7 +364,9 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                     )
                 if not sanitized:
                     try:
-                        events, redactions = safe_events(events, key, scanner)
+                        events, redactions = safe_events(
+                            events, key, scanner, context=context
+                        )
                     except OutputScanError as scan_error:
                         ai_telemetry.record_attempt(
                             "",
@@ -263,10 +384,10 @@ def analyze(context: str, prompt: str, key: str, *, thinking: bool = True) -> An
                 )
                 # Never feed failed output back as instructions or print it in CI.
                 sys.stderr.write(
-                    f"Analysis attempt {attempt + 1}/3 failed "
+                    f"Analysis attempt {attempt + 1}/{attempt_limit} failed "
                     f"({type(error).__name__}); provider output withheld.\n"
                 )
-                command[-1] = prompt + "\n" + SYSTEM_PROMPT
+                command[-1] = prompt + "\n" + SYSTEM_PROMPT + validation_feedback(error)
             else:
                 ai_telemetry.record_attempt(
                     events,
