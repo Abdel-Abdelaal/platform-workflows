@@ -4,6 +4,6 @@
   "private": true,
   "description": "Locked coding-agent CLI for isolated advisory analysis",
   "devDependencies": {
-    "opencode-ai": "1.18.35"
+    "opencode-ai": "1.19.0"
   }
 }
