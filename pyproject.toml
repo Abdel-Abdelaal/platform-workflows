@@ -16,7 +16,7 @@ dev = [
     "pytest-cov>=7.1",
     "ruff>=0.17.2",
     "pyright>=1.1.414",
-    "types-pyyaml>=6.0.12.20260906",
+    "types-pyyaml>=6.0.12.20261030",
     "pre-commit==4.7.0",
 ]
 
